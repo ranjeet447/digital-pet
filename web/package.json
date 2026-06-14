@@ -1,0 +1,48 @@
+{
+  "name": "@ranjeet447/digital-pet",
+  "version": "0.1.0",
+  "description": "A customizable digital pet web component. The default pet is Shiro, a playful golden retriever.",
+  "homepage": "https://ranjeet447.github.io/digital-pet/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ranjeet447/digital-pet.git",
+    "directory": "web"
+  },
+  "bugs": {
+    "url": "https://github.com/ranjeet447/digital-pet/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "digital-pet",
+    "web-component",
+    "golden-retriever",
+    "canvas",
+    "website-widget",
+    "shiro"
+  ],
+  "license": "MIT",
+  "sideEffects": true,
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

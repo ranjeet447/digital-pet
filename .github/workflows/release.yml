@@ -1,0 +1,83 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build macOS application
+        run: ./scripts/package-app.sh
+
+      - name: Package macOS application
+        run: ditto -c -k --sequesterRsrc --keepParent "dist/Digital Pet.app" "Digital-Pet-macOS-${GITHUB_REF_NAME}.zip"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: Digital-Pet-macOS-*.zip
+
+  web:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install web build dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build web package
+        working-directory: web
+        run: npm run build
+
+      - name: Pack web package
+        working-directory: web
+        run: npm pack
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: web/ranjeet447-digital-pet-*.tgz
+
+  release:
+    needs:
+      - macos
+      - web
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --generate-notes \
+            --title "Digital Pet $GITHUB_REF_NAME"

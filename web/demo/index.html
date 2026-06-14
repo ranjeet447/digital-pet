@@ -1,0 +1,1669 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Digital Pet is an open-source animated companion for websites and desktops. The default pet is Shiro, a ball-loving golden retriever whose name can be customized."
+    />
+    <meta
+      name="keywords"
+      content="digital pet, website pet, JavaScript pet, web component, golden retriever, desktop pet, macOS pet, React pet, Vue pet, Angular pet"
+    />
+    <meta name="author" content="Ranjeet and Shiro" />
+    <meta name="theme-color" content="#f7efe3" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://ranjeet447.github.io/digital-pet/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Digital Pet" />
+    <meta property="og:title" content="Digital Pet | A playful companion for every screen" />
+    <meta
+      property="og:description"
+      content="Add an animated, customizable pet to any website or desktop. The first pet is Shiro, a golden retriever."
+    />
+    <meta property="og:url" content="https://ranjeet447.github.io/digital-pet/" />
+    <meta
+      property="og:image"
+      content="https://ranjeet447.github.io/digital-pet/images/shiro-happy.jpg"
+    />
+    <meta property="og:image:alt" content="Shiro, a happy golden retriever" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Digital Pet" />
+    <meta
+      name="twitter:description"
+      content="An open-source digital golden retriever for websites and desktops."
+    />
+    <meta
+      name="twitter:image"
+      content="https://ranjeet447.github.io/digital-pet/images/shiro-happy.jpg"
+    />
+
+    <title>Digital Pet | Animated Website and Desktop Companion</title>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Digital Pet",
+        "description": "An open-source animated and customizable pet for websites and desktop computers. The default pet is Shiro, a golden retriever.",
+        "applicationCategory": "EntertainmentApplication",
+        "operatingSystem": "Web, macOS",
+        "url": "https://ranjeet447.github.io/digital-pet/",
+        "downloadUrl": "https://github.com/ranjeet447/digital-pet/releases",
+        "isAccessibleForFree": true,
+        "author": {
+          "@type": "Person",
+          "name": "Ranjeet"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "image": "https://ranjeet447.github.io/digital-pet/images/shiro-happy.jpg"
+      }
+    </script>
+
+    <style>
+      :root {
+        --ink: #251a13;
+        --ink-soft: #604c3e;
+        --paper: #fffdf8;
+        --cream: #f7efe3;
+        --cream-deep: #ead8c1;
+        --gold: #c66c2b;
+        --gold-dark: #8e451b;
+        --sage: #596f63;
+        --sage-light: #dce6df;
+        --white: #ffffff;
+        --line: rgba(68, 40, 22, 0.12);
+        --shadow: 0 24px 70px rgba(71, 42, 22, 0.13);
+        --radius-lg: 32px;
+        --radius-md: 22px;
+        color: var(--ink);
+        background: var(--paper);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        font-synthesis: none;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        margin: 0;
+        overflow-x: hidden;
+        background:
+          radial-gradient(circle at 4% 8%, rgba(225, 171, 97, 0.2), transparent 28rem),
+          radial-gradient(circle at 96% 18%, rgba(97, 128, 111, 0.13), transparent 31rem),
+          var(--paper);
+        color: var(--ink);
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background-image: url("data:image/svg+xml,%3Csvg width='72' height='72' viewBox='0 0 72 72' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23745135' fill-opacity='.022'%3E%3Ccircle cx='9' cy='9' r='1'/%3E%3Ccircle cx='45' cy='31' r='1'/%3E%3C/g%3E%3C/svg%3E");
+        content: "";
+        pointer-events: none;
+      }
+
+      img {
+        display: block;
+        max-width: 100%;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .shell {
+        width: min(1180px, calc(100% - 40px));
+        margin-inline: auto;
+      }
+
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        border-bottom: 1px solid transparent;
+        background: rgba(255, 253, 248, 0.82);
+        backdrop-filter: blur(18px);
+        transition: border-color 180ms ease, box-shadow 180ms ease;
+      }
+
+      .site-header.scrolled {
+        border-color: var(--line);
+        box-shadow: 0 8px 30px rgba(71, 42, 22, 0.06);
+      }
+
+      .nav {
+        display: flex;
+        min-height: 72px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        font-size: 18px;
+        font-weight: 850;
+        letter-spacing: -0.03em;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border-radius: 13px;
+        background: var(--gold);
+        box-shadow: 0 8px 20px rgba(198, 108, 43, 0.25);
+        color: white;
+        font-size: 19px;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        color: var(--ink-soft);
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .nav-links a:hover {
+        color: var(--gold-dark);
+      }
+
+      .nav-github {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        gap: 8px;
+        padding: 0 16px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--ink);
+      }
+
+      .hero {
+        display: grid;
+        min-height: calc(100vh - 72px);
+        align-items: center;
+        gap: clamp(44px, 7vw, 90px);
+        grid-template-columns: minmax(0, 1.03fr) minmax(360px, 0.97fr);
+        padding-block: clamp(64px, 8vw, 110px);
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--gold-dark);
+        font-size: 12px;
+        font-weight: 850;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 28px;
+        height: 2px;
+        border-radius: 999px;
+        background: var(--gold);
+        content: "";
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1,
+      h2 {
+        font-family: Georgia, "Times New Roman", serif;
+        letter-spacing: -0.045em;
+      }
+
+      h1 {
+        max-width: 720px;
+        margin: 18px 0 24px;
+        font-size: clamp(54px, 7.7vw, 108px);
+        font-weight: 700;
+        line-height: 0.9;
+      }
+
+      h1 em {
+        color: var(--gold);
+        font-weight: inherit;
+      }
+
+      .hero-copy > p {
+        max-width: 620px;
+        margin-bottom: 31px;
+        color: var(--ink-soft);
+        font-size: clamp(17px, 1.7vw, 21px);
+        line-height: 1.7;
+      }
+
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .button {
+        display: inline-flex;
+        min-height: 52px;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 0 21px;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 800;
+        transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease;
+      }
+
+      .button:hover {
+        transform: translateY(-2px);
+      }
+
+      .button-primary {
+        background: var(--ink);
+        box-shadow: 0 12px 30px rgba(37, 26, 19, 0.2);
+        color: white;
+      }
+
+      .button-primary:hover {
+        background: #3a291e;
+      }
+
+      .button-secondary {
+        border-color: var(--line);
+        background: rgba(255, 255, 255, 0.78);
+        color: var(--ink);
+      }
+
+      .mini-proof {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px 18px;
+        margin-top: 24px;
+        color: #766254;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .mini-proof span::before {
+        margin-right: 7px;
+        color: var(--sage);
+        content: "✓";
+        font-weight: 900;
+      }
+
+      .hero-visual {
+        position: relative;
+        min-height: 610px;
+      }
+
+      .hero-photo {
+        position: absolute;
+        inset: 18px 4px 52px 42px;
+        overflow: hidden;
+        border: 9px solid rgba(255, 255, 255, 0.82);
+        border-radius: 42% 42% 30% 30% / 32% 32% 26% 26%;
+        background: var(--cream-deep);
+        box-shadow: var(--shadow);
+        transform: rotate(2.5deg);
+      }
+
+      .hero-photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: 50% 42%;
+        transform: scale(1.03);
+      }
+
+      .hero-card {
+        position: absolute;
+        right: -8px;
+        bottom: 17px;
+        width: min(290px, 69%);
+        padding: 19px 20px;
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: 20px;
+        background: rgba(255, 253, 248, 0.91);
+        box-shadow: 0 16px 50px rgba(62, 37, 22, 0.16);
+        backdrop-filter: blur(14px);
+      }
+
+      .hero-card strong {
+        display: block;
+        margin-bottom: 5px;
+        font-family: Georgia, serif;
+        font-size: 20px;
+      }
+
+      .hero-card span {
+        color: var(--ink-soft);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .ball {
+        position: absolute;
+        border-radius: 50%;
+        box-shadow: inset -8px -8px 15px rgba(0, 0, 0, 0.12), 0 12px 24px rgba(73, 42, 20, 0.14);
+      }
+
+      .ball-one {
+        top: 27px;
+        right: 4px;
+        width: 54px;
+        height: 54px;
+        background: #e84f40;
+      }
+
+      .ball-two {
+        bottom: 90px;
+        left: 6px;
+        width: 40px;
+        height: 40px;
+        background: #e8b92f;
+      }
+
+      .ball-three {
+        top: 98px;
+        left: 3px;
+        width: 27px;
+        height: 27px;
+        background: #4c95d9;
+      }
+
+      .section {
+        padding-block: clamp(82px, 10vw, 138px);
+      }
+
+      .section-soft {
+        border-block: 1px solid var(--line);
+        background: rgba(239, 229, 215, 0.48);
+      }
+
+      .section-heading {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 32px;
+        margin-bottom: 42px;
+      }
+
+      .section-heading h2 {
+        max-width: 720px;
+        margin: 10px 0 0;
+        font-size: clamp(42px, 5.4vw, 74px);
+        line-height: 0.98;
+      }
+
+      .section-heading > p {
+        max-width: 390px;
+        margin-bottom: 2px;
+        color: var(--ink-soft);
+        line-height: 1.7;
+      }
+
+      .playground {
+        display: grid;
+        gap: 32px;
+        grid-template-columns: 0.8fr 1.2fr;
+      }
+
+      .playground-copy,
+      .command-panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: rgba(255, 255, 255, 0.73);
+        box-shadow: 0 16px 50px rgba(62, 37, 22, 0.07);
+      }
+
+      .playground-copy {
+        display: flex;
+        min-height: 370px;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: clamp(28px, 4vw, 48px);
+        background:
+          linear-gradient(160deg, rgba(82, 107, 94, 0.93), rgba(47, 67, 57, 0.98)),
+          var(--sage);
+        color: white;
+      }
+
+      .playground-copy h3 {
+        margin-bottom: 15px;
+        font-family: Georgia, serif;
+        font-size: clamp(31px, 4vw, 48px);
+        line-height: 1.05;
+      }
+
+      .playground-copy p {
+        color: rgba(255, 255, 255, 0.76);
+        line-height: 1.7;
+      }
+
+      .status {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        gap: 9px;
+        padding: 10px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #7be3a5;
+        box-shadow: 0 0 0 5px rgba(123, 227, 165, 0.12);
+      }
+
+      .command-panel {
+        padding: clamp(25px, 4vw, 42px);
+      }
+
+      .command-panel h3 {
+        margin-bottom: 7px;
+        font-size: 18px;
+      }
+
+      .command-panel > p {
+        margin-bottom: 24px;
+        color: var(--ink-soft);
+        font-size: 14px;
+      }
+
+      .commands {
+        display: grid;
+        gap: 9px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .command {
+        min-height: 44px;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--white);
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 720;
+        transition: border-color 140ms ease, color 140ms ease, transform 140ms ease, background 140ms ease;
+      }
+
+      .command:hover,
+      .command.active {
+        border-color: rgba(198, 108, 43, 0.62);
+        background: #fff5e9;
+        color: var(--gold-dark);
+        transform: translateY(-1px);
+      }
+
+      .feature-grid {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .feature-card {
+        min-height: 230px;
+        padding: 28px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: rgba(255, 255, 255, 0.75);
+        transition: transform 180ms ease, box-shadow 180ms ease;
+      }
+
+      .feature-card:hover {
+        box-shadow: 0 16px 45px rgba(62, 37, 22, 0.08);
+        transform: translateY(-4px);
+      }
+
+      .feature-number {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        margin-bottom: 31px;
+        place-items: center;
+        border-radius: 13px;
+        background: var(--cream);
+        color: var(--gold-dark);
+        font-family: Georgia, serif;
+        font-weight: 700;
+      }
+
+      .feature-card h3 {
+        margin-bottom: 9px;
+        font-size: 18px;
+      }
+
+      .feature-card p {
+        margin-bottom: 0;
+        color: var(--ink-soft);
+        font-size: 14px;
+        line-height: 1.65;
+      }
+
+      .story {
+        display: grid;
+        align-items: center;
+        gap: clamp(45px, 8vw, 100px);
+        grid-template-columns: minmax(340px, 0.9fr) minmax(0, 1.1fr);
+      }
+
+      .story-photo {
+        position: relative;
+      }
+
+      .story-photo::before {
+        position: absolute;
+        inset: -18px 22px 22px -18px;
+        z-index: -1;
+        border-radius: var(--radius-lg);
+        background: var(--sage-light);
+        content: "";
+        transform: rotate(-3deg);
+      }
+
+      .story-photo img {
+        width: 100%;
+        aspect-ratio: 1 / 1.03;
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+        object-fit: cover;
+        object-position: center 30%;
+      }
+
+      .story-copy h2 {
+        margin: 12px 0 23px;
+        font-size: clamp(42px, 5.5vw, 72px);
+        line-height: 0.98;
+      }
+
+      .story-copy p {
+        max-width: 590px;
+        color: var(--ink-soft);
+        font-size: 17px;
+        line-height: 1.8;
+      }
+
+      .quote {
+        margin-top: 30px;
+        padding: 22px 24px;
+        border-left: 3px solid var(--gold);
+        background: rgba(247, 239, 227, 0.74);
+        color: #4a372a;
+        font-family: Georgia, serif;
+        font-size: 20px;
+        line-height: 1.55;
+      }
+
+      .install-layout {
+        display: grid;
+        gap: 30px;
+        grid-template-columns: minmax(0, 0.82fr) minmax(420px, 1.18fr);
+      }
+
+      .install-copy {
+        padding: 18px 0;
+      }
+
+      .install-copy h2 {
+        margin: 12px 0 19px;
+        font-size: clamp(42px, 5.5vw, 70px);
+        line-height: 0.98;
+      }
+
+      .install-copy > p {
+        max-width: 500px;
+        color: var(--ink-soft);
+        line-height: 1.75;
+      }
+
+      .frameworks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 25px;
+      }
+
+      .frameworks span {
+        padding: 8px 12px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: white;
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      .code-card {
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: var(--radius-lg);
+        background: #1f1c1a;
+        box-shadow: var(--shadow);
+        color: #f9eee1;
+      }
+
+      .code-tabs {
+        display: flex;
+        gap: 4px;
+        padding: 13px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.025);
+      }
+
+      .code-tab {
+        padding: 8px 12px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #aa9d92;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      .code-tab.active {
+        background: rgba(255, 255, 255, 0.09);
+        color: white;
+      }
+
+      pre {
+        min-height: 300px;
+        margin: 0;
+        overflow: auto;
+        padding: 31px;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 13px;
+        line-height: 1.8;
+        white-space: pre-wrap;
+      }
+
+      .code-accent {
+        color: #f0ab72;
+      }
+
+      .platform-grid {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .platform-card {
+        position: relative;
+        min-height: 280px;
+        overflow: hidden;
+        padding: 31px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: white;
+      }
+
+      .platform-card.available {
+        background: var(--ink);
+        color: white;
+      }
+
+      .platform-label {
+        display: inline-flex;
+        margin-bottom: 60px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: var(--cream);
+        color: var(--gold-dark);
+        font-size: 10px;
+        font-weight: 850;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+      }
+
+      .available .platform-label {
+        background: rgba(255, 255, 255, 0.12);
+        color: #f7d8bd;
+      }
+
+      .platform-card h3 {
+        margin-bottom: 9px;
+        font-family: Georgia, serif;
+        font-size: 29px;
+      }
+
+      .platform-card p {
+        margin-bottom: 24px;
+        color: var(--ink-soft);
+        font-size: 14px;
+        line-height: 1.65;
+      }
+
+      .available p {
+        color: rgba(255, 255, 255, 0.66);
+      }
+
+      .platform-download {
+        display: inline-flex;
+        min-height: 40px;
+        align-items: center;
+        justify-content: center;
+        padding: 0 14px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--cream);
+        color: var(--ink);
+        font-size: 12px;
+        font-weight: 800;
+        transition: transform 140ms ease, background 140ms ease;
+      }
+
+      .platform-download:hover {
+        background: var(--cream-deep);
+        transform: translateY(-1px);
+      }
+
+      .available .platform-download {
+        border-color: rgba(255, 255, 255, 0.16);
+        background: white;
+        color: var(--ink);
+      }
+
+      .platform-download.upcoming {
+        background: transparent;
+        color: var(--ink-soft);
+      }
+
+      .platform-mark {
+        position: absolute;
+        top: 18px;
+        right: 25px;
+        color: rgba(124, 84, 52, 0.1);
+        font-family: Georgia, serif;
+        font-size: 90px;
+        font-weight: 800;
+      }
+
+      .available .platform-mark {
+        color: rgba(255, 255, 255, 0.07);
+      }
+
+      .gallery {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: 1.25fr 0.75fr 0.75fr;
+        grid-template-rows: 250px 250px;
+      }
+
+      .gallery figure {
+        position: relative;
+        overflow: hidden;
+        margin: 0;
+        border-radius: var(--radius-md);
+      }
+
+      .gallery figure:first-child {
+        grid-row: 1 / 3;
+      }
+
+      .gallery figure:last-child {
+        grid-column: 2 / 4;
+      }
+
+      .gallery img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 400ms ease;
+      }
+
+      .gallery figure:hover img {
+        transform: scale(1.035);
+      }
+
+      .gallery figure:first-child img {
+        object-position: center 29%;
+      }
+
+      .gallery figure:last-child img {
+        object-position: center 28%;
+      }
+
+      .gallery figcaption {
+        position: absolute;
+        right: 14px;
+        bottom: 14px;
+        left: 14px;
+        padding: 10px 12px;
+        border-radius: 11px;
+        background: rgba(31, 24, 19, 0.63);
+        color: white;
+        font-size: 12px;
+        backdrop-filter: blur(10px);
+      }
+
+      .final-cta {
+        position: relative;
+        overflow: hidden;
+        padding: clamp(42px, 7vw, 80px);
+        border-radius: 40px;
+        background:
+          radial-gradient(circle at 90% 15%, rgba(236, 178, 103, 0.3), transparent 20rem),
+          var(--sage);
+        color: white;
+        text-align: center;
+      }
+
+      .final-cta::after {
+        position: absolute;
+        right: -80px;
+        bottom: -105px;
+        width: 260px;
+        height: 260px;
+        border: 45px solid rgba(255, 255, 255, 0.045);
+        border-radius: 50%;
+        content: "";
+      }
+
+      .final-cta h2 {
+        max-width: 780px;
+        margin: 0 auto 19px;
+        font-size: clamp(42px, 6vw, 78px);
+        line-height: 0.98;
+      }
+
+      .final-cta p {
+        max-width: 610px;
+        margin: 0 auto 30px;
+        color: rgba(255, 255, 255, 0.75);
+        font-size: 17px;
+        line-height: 1.7;
+      }
+
+      .final-cta .button-primary {
+        background: white;
+        color: var(--ink);
+      }
+
+      footer {
+        padding: 38px 0 52px;
+        color: #756154;
+        font-size: 13px;
+      }
+
+      .footer-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+      }
+
+      .reveal {
+        opacity: 1;
+        transform: none;
+      }
+
+      :focus-visible {
+        outline: 3px solid rgba(198, 108, 43, 0.6);
+        outline-offset: 3px;
+      }
+
+      @media (max-width: 960px) {
+        .nav-links a:not(.nav-github) {
+          display: none;
+        }
+
+        .hero {
+          min-height: auto;
+          grid-template-columns: 1fr;
+        }
+
+        .hero-copy {
+          text-align: center;
+        }
+
+        .hero-copy > p,
+        h1 {
+          margin-right: auto;
+          margin-left: auto;
+        }
+
+        .eyebrow,
+        .cta-row,
+        .mini-proof {
+          justify-content: center;
+        }
+
+        .hero-visual {
+          width: min(620px, 100%);
+          min-height: 570px;
+          margin-inline: auto;
+        }
+
+        .section-heading {
+          display: block;
+        }
+
+        .section-heading > p {
+          margin-top: 20px;
+        }
+
+        .playground,
+        .story,
+        .install-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .feature-grid,
+        .platform-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .story-photo {
+          width: min(620px, 100%);
+          margin-inline: auto;
+        }
+
+        .install-copy {
+          text-align: center;
+        }
+
+        .install-copy > p {
+          margin-inline: auto;
+        }
+
+        .frameworks {
+          justify-content: center;
+        }
+      }
+
+      @media (max-width: 650px) {
+        .shell {
+          width: min(100% - 26px, 1180px);
+        }
+
+        .nav {
+          min-height: 64px;
+        }
+
+        .brand {
+          font-size: 16px;
+        }
+
+        .nav-github {
+          min-height: 38px;
+          padding-inline: 13px;
+        }
+
+        .hero {
+          padding-top: 48px;
+        }
+
+        h1 {
+          font-size: clamp(48px, 16vw, 72px);
+        }
+
+        .hero-visual {
+          min-height: 440px;
+        }
+
+        .hero-photo {
+          inset: 12px 8px 45px 24px;
+          border-width: 6px;
+          border-radius: 36px;
+        }
+
+        .hero-card {
+          right: 2px;
+          width: 72%;
+        }
+
+        .commands {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .feature-grid,
+        .platform-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .feature-card {
+          min-height: auto;
+        }
+
+        .gallery {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: 330px 180px 220px;
+        }
+
+        .gallery figure:first-child {
+          grid-column: 1 / 3;
+          grid-row: auto;
+        }
+
+        .gallery figure:last-child {
+          grid-column: 1 / 3;
+        }
+
+        pre {
+          min-height: 330px;
+          padding: 22px;
+          font-size: 12px;
+        }
+
+        .footer-inner {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+
+        .reveal {
+          opacity: 1;
+          transform: none;
+        }
+      }
+    </style>
+
+    <script type="module">
+      import "../dist/index.js";
+
+      const pet = document.querySelector("digital-pet");
+      const statusText = document.querySelector("[data-status]");
+      const commandButtons = document.querySelectorAll("[data-command]");
+      const codeBlock = document.querySelector("[data-code]");
+      const codeTabs = document.querySelectorAll("[data-code-tab]");
+
+      const codeExamples = {
+        html: `<span class="code-accent">&lt;script</span> type="module"
+  src="/shiro/index.js"<span class="code-accent">&gt;&lt;/script&gt;</span>
+
+<span class="code-accent">&lt;digital-pet</span>
+  size="normal"
+  controls="true"
+<span class="code-accent">&gt;&lt;/digital-pet&gt;</span>`,
+        react: `<span class="code-accent">"use client";</span>
+
+import { useEffect } from "react";
+
+export function Shiro() {
+  useEffect(() =&gt; {
+    import("@ranjeet447/digital-pet");
+  }, []);
+
+  return &lt;digital-pet controls="true" /&gt;;
+}`,
+        api: `import { mountDigitalPet }
+  from <span class="code-accent">"@ranjeet447/digital-pet"</span>;
+
+const shiro = mountDigitalPet({
+  name: "Shiro",
+  size: "normal",
+  controls: true,
+});
+
+shiro.command(<span class="code-accent">"fetch"</span>);
+shiro.command(<span class="code-accent">"sleep"</span>);`,
+      };
+
+      commandButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const command = button.dataset.command;
+          pet.command(command);
+          commandButtons.forEach((item) => item.classList.remove("active"));
+          button.classList.add("active");
+          statusText.textContent = `Shiro is doing: ${button.textContent}`;
+          window.setTimeout(() => button.classList.remove("active"), 1700);
+        });
+      });
+
+      codeTabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          codeTabs.forEach((item) => item.classList.remove("active"));
+          tab.classList.add("active");
+          codeBlock.innerHTML = codeExamples[tab.dataset.codeTab];
+        });
+      });
+
+      pet.addEventListener("digital-pet-command", (event) => {
+        const label = event.detail.command.replace("-", " ");
+        statusText.textContent = `Shiro is doing: ${label}`;
+      });
+
+      const header = document.querySelector(".site-header");
+      const updateHeader = () => header.classList.toggle("scrolled", window.scrollY > 10);
+      updateHeader();
+      window.addEventListener("scroll", updateHeader, { passive: true });
+
+    </script>
+  </head>
+
+  <body>
+    <header class="site-header">
+      <nav class="nav shell" aria-label="Primary navigation">
+        <a class="brand" href="#top" aria-label="Digital Pet home">
+          <span class="brand-mark" aria-hidden="true">D</span>
+          Digital Pet
+        </a>
+        <div class="nav-links">
+          <a href="#play">Try Shiro</a>
+          <a href="#features">Features</a>
+          <a href="#install">Install</a>
+          <a href="#story">Meet Shiro</a>
+          <a
+            class="nav-github"
+            href="https://github.com/ranjeet447/digital-pet"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+            <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero shell">
+        <div class="hero-copy reveal">
+          <span class="eyebrow">Open source · Web and macOS</span>
+          <h1>A playful companion for <em>every screen.</em></h1>
+          <p>
+            Add a lively companion to your screen. The included pet is Shiro, a
+            digital golden retriever who follows your cursor, takes naps,
+            performs tricks, and is always ready to fetch another ball.
+          </p>
+          <div class="cta-row">
+            <a class="button button-primary" href="#play">
+              Play with Shiro
+              <span aria-hidden="true">↓</span>
+            </a>
+            <a
+              class="button button-secondary"
+              href="https://github.com/ranjeet447/digital-pet/releases"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Download for macOS
+            </a>
+          </div>
+          <div class="mini-proof" aria-label="Product highlights">
+            <span>Zero runtime dependencies</span>
+            <span>Works with any framework</span>
+            <span>Free and open source</span>
+          </div>
+        </div>
+
+        <div class="hero-visual reveal">
+          <div class="ball ball-one" aria-hidden="true"></div>
+          <div class="ball ball-two" aria-hidden="true"></div>
+          <div class="ball ball-three" aria-hidden="true"></div>
+          <div class="hero-photo">
+            <img
+              src="./images/shiro-sofa.jpg"
+              alt="Shiro the golden retriever sitting happily on a sofa"
+              width="1080"
+              height="1094"
+              fetchpriority="high"
+            />
+          </div>
+          <div class="hero-card">
+            <strong>Inspired by the real Shiro</strong>
+            <span>
+              A ball-loving golden retriever with a big personality and an even
+              bigger collection of tricks.
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-soft" id="play">
+        <div class="shell">
+          <div class="section-heading reveal">
+            <div>
+              <span class="eyebrow">Live playground</span>
+              <h2>Ask Shiro to show you a trick.</h2>
+            </div>
+            <p>
+              The pet on this page is the actual package. Try a command, drag him
+              around, or open his paw menu in the corner.
+            </p>
+          </div>
+
+          <div class="playground reveal">
+            <article class="playground-copy">
+              <div>
+                <h3>He already knows fourteen commands.</h3>
+                <p>
+                  Shiro can respond directly to visitors, react to the pointer,
+                  or choose his own behavior when everyone is busy.
+                </p>
+              </div>
+              <div class="status">
+                <span class="status-dot" aria-hidden="true"></span>
+                <span data-status>Shiro is ready to play</span>
+              </div>
+            </article>
+
+            <div class="command-panel">
+              <h3>All tricks and commands</h3>
+              <p>Choose one and watch the digital Shiro on this page.</p>
+              <div class="commands">
+                <button class="command" type="button" data-command="sit">Sit</button>
+                <button class="command" type="button" data-command="walk">Walk</button>
+                <button class="command" type="button" data-command="run">Run</button>
+                <button class="command" type="button" data-command="jump">Jump</button>
+                <button class="command" type="button" data-command="down">Down</button>
+                <button class="command" type="button" data-command="sleep">Sleep</button>
+                <button class="command" type="button" data-command="roll-over">Roll Over</button>
+                <button class="command" type="button" data-command="handshake">Handshake</button>
+                <button class="command" type="button" data-command="hi-five">Hi-Five</button>
+                <button class="command" type="button" data-command="salute">Salute</button>
+                <button class="command" type="button" data-command="namaste">Namaste</button>
+                <button class="command" type="button" data-command="speak">Speak</button>
+                <button class="command" type="button" data-command="quiet">Quiet</button>
+                <button class="command" type="button" data-command="fetch">Fetch a Ball</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell" id="features">
+        <div class="section-heading reveal">
+          <div>
+            <span class="eyebrow">Built to feel alive</span>
+            <h2>More companion than widget.</h2>
+          </div>
+          <p>
+            A lightweight animation engine gives Shiro personality without taking
+            over your app or website.
+          </p>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature-card reveal">
+            <span class="feature-number">01</span>
+            <h3>Independent behavior</h3>
+            <p>
+              Shiro walks, runs, rests, watches the pointer, and chooses his own
+              tricks when left alone.
+            </p>
+          </article>
+          <article class="feature-card reveal">
+            <span class="feature-number">02</span>
+            <h3>Natural commands</h3>
+            <p>
+              Sit, down, jump, roll over, handshake, hi-five, salute, namaste,
+              speak, quiet, sleep, and fetch.
+            </p>
+          </article>
+          <article class="feature-card reveal">
+            <span class="feature-number">03</span>
+            <h3>Ball obsessed</h3>
+            <p>
+              A colorful ball collection and dedicated fetch animation capture
+              the real Shiro's favorite pastime.
+            </p>
+          </article>
+          <article class="feature-card reveal">
+            <span class="feature-number">04</span>
+            <h3>Website safe</h3>
+            <p>
+              Shadow DOM keeps styles isolated, while background-tab pausing and
+              reduced-motion support keep performance responsible.
+            </p>
+          </article>
+          <article class="feature-card reveal">
+            <span class="feature-number">05</span>
+            <h3>Visitor controlled</h3>
+            <p>
+              Drag to reposition, pick a size, hide Shiro, send him to sleep, or
+              call any command through JavaScript.
+            </p>
+          </article>
+          <article class="feature-card reveal">
+            <span class="feature-number">06</span>
+            <h3>Cross-platform</h3>
+            <p>
+              Use the Web Component today or download the native macOS pet.
+              Windows and Linux versions follow the same feature contract.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section section-soft" id="story">
+        <div class="story shell">
+          <div class="story-photo reveal">
+            <img
+              src="./images/shiro-happy.jpg"
+              alt="Shiro relaxing happily in a corner"
+              width="1260"
+              height="765"
+              loading="lazy"
+            />
+          </div>
+          <div class="story-copy reveal">
+            <span class="eyebrow">The dog behind the code</span>
+            <h2>His name is Shiro.</h2>
+            <p>
+              Shiro is a real golden retriever with long honey-gold fur, a happy
+              face, a love for people, and more balls than anyone can count. This
+              project brings a little of that personality to the screen.
+            </p>
+            <p>
+              Shiro is the default pet and the inspiration for the project. You
+              can change his name for your own website, and future releases will
+              add more ways to personalize your companion.
+            </p>
+            <p>
+              Follow the real Shiro's adventures, favorite finds, and daily life
+              at
+              <a
+                href="https://www.shirofinds.com/"
+                target="_blank"
+                rel="noreferrer"
+                style="color: var(--gold-dark); font-weight: 800"
+              >Shiro Finds ↗</a>.
+            </p>
+            <div class="quote">
+              “Built from a real companion, designed to become yours.”
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell" id="install">
+        <div class="install-layout">
+          <div class="install-copy reveal">
+            <span class="eyebrow">One package, any project</span>
+            <h2>Drop Digital Pet into your stack.</h2>
+            <p>
+              The core is a dependency-free Web Component, so it works in plain
+              HTML and stays easy to wrap in React, Vue, Angular, Svelte, Astro,
+              or any framework that supports custom elements.
+            </p>
+            <div class="frameworks" aria-label="Supported frameworks">
+              <span>HTML</span>
+              <span>React</span>
+              <span>Vue</span>
+              <span>Angular</span>
+              <span>Svelte</span>
+              <span>Next.js</span>
+              <span>Astro</span>
+            </div>
+          </div>
+
+          <div class="code-card reveal">
+            <div class="code-tabs" role="tablist" aria-label="Installation examples">
+              <button class="code-tab active" type="button" data-code-tab="html" role="tab">
+                HTML
+              </button>
+              <button class="code-tab" type="button" data-code-tab="react" role="tab">
+                React
+              </button>
+              <button class="code-tab" type="button" data-code-tab="api" role="tab">
+                JavaScript API
+              </button>
+            </div>
+            <pre><code data-code><span class="code-accent">&lt;script</span> type="module"
+  src="/digital-pet.js"<span class="code-accent">&gt;&lt;/script&gt;</span>
+
+<span class="code-accent">&lt;digital-pet</span>
+  size="normal"
+  controls="true"
+<span class="code-accent">&gt;&lt;/digital-pet&gt;</span></code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-soft" id="downloads">
+        <div class="shell">
+          <div class="section-heading reveal">
+            <div>
+              <span class="eyebrow">Every screen</span>
+              <h2>Web today. Desktop everywhere.</h2>
+            </div>
+            <p>
+              One shared personality and feature contract across browsers and
+              native desktop applications.
+            </p>
+          </div>
+
+          <div class="platform-grid">
+            <article class="platform-card available reveal">
+              <span class="platform-mark" aria-hidden="true">W</span>
+              <span class="platform-label">Available</span>
+              <h3>Web package</h3>
+              <p>
+                Download the ready-to-use ES module or package archive and add it
+                to plain HTML, React, Vue, Angular, or another framework.
+              </p>
+              <a
+                class="platform-download"
+                href="./downloads/digital-pet-0.1.0.tgz"
+              >
+                Download web package
+              </a>
+              <a
+                class="platform-download"
+                href="./downloads/digital-pet.js"
+                download
+                style="margin-top: 9px"
+              >
+                Download browser script
+              </a>
+            </article>
+            <article class="platform-card available reveal">
+              <span class="platform-mark" aria-hidden="true">M</span>
+              <span class="platform-label">Available</span>
+              <h3>macOS app</h3>
+              <p>
+                A native always-on-top desktop pet with menu controls, multiple
+                sizes, tricks, and optional cursor mischief.
+              </p>
+              <a
+                class="platform-download"
+                href="https://github.com/ranjeet447/digital-pet/releases/download/v0.1.0/Digital-Pet-macOS-v0.1.0.zip"
+              >
+                Download for macOS
+              </a>
+            </article>
+            <article class="platform-card reveal">
+              <span class="platform-mark" aria-hidden="true">W</span>
+              <span class="platform-label">Version 0.2.0</span>
+              <h3>Windows app</h3>
+              <p>
+                Planned with the same always-on-top behavior, commands, sizes,
+                balls, and system tray controls.
+              </p>
+              <a
+                class="platform-download upcoming"
+                href="https://github.com/ranjeet447/digital-pet/releases"
+              >
+                Watch Windows releases
+              </a>
+            </article>
+            <article class="platform-card reveal">
+              <span class="platform-mark" aria-hidden="true">L</span>
+              <span class="platform-label">Version 0.2.0</span>
+              <h3>Linux app</h3>
+              <p>
+                Planned with feature parity across supported Linux desktops and
+                portable distribution options.
+              </p>
+              <a
+                class="platform-download upcoming"
+                href="https://github.com/ranjeet447/digital-pet/releases"
+              >
+                Watch Linux releases
+              </a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell">
+        <div class="section-heading reveal">
+          <div>
+            <span class="eyebrow">Meet the real Shiro</span>
+            <h2>Golden, fluffy, and always smiling.</h2>
+          </div>
+          <p>
+            These photos guide the digital character's broad nose, feathered fur,
+            warm coat, happy expression, and playful personality.
+          </p>
+        </div>
+
+        <div class="gallery reveal">
+          <figure>
+            <img
+              src="./images/shiro-closeup.jpg"
+              alt="Close portrait of Shiro smiling"
+              width="675"
+              height="1200"
+              loading="lazy"
+            />
+            <figcaption>The smile behind the digital expression.</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="./images/shiro-puppy.jpg"
+              alt="Shiro as a golden retriever puppy"
+              width="768"
+              height="1024"
+              loading="lazy"
+            />
+            <figcaption>Shiro's puppy days.</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="./images/shiro-sofa.jpg"
+              alt="Adult Shiro sitting on a sofa"
+              width="1080"
+              height="1094"
+              loading="lazy"
+            />
+            <figcaption>Full fur, bright eyes, and ready to play.</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="./images/shiro-happy.jpg"
+              alt="Shiro relaxing on a wooden floor"
+              width="1260"
+              height="765"
+              loading="lazy"
+            />
+            <figcaption>Expert in corner naps.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="section shell">
+        <div class="final-cta reveal">
+          <h2>Bring Digital Pet to your screen.</h2>
+          <p>
+            Try the package, download the macOS app, follow development on
+            GitHub, and help shape the Windows, Linux, sound, and personalization
+            releases.
+          </p>
+          <div class="cta-row" style="justify-content: center">
+            <a
+              class="button button-primary"
+              href="https://github.com/ranjeet447/digital-pet"
+              target="_blank"
+              rel="noreferrer"
+            >
+              View on GitHub
+            </a>
+            <a class="button button-secondary" href="#install">Install the package</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-inner shell">
+        <div>© 2026 Digital Pet. Inspired by Shiro, a real golden retriever.</div>
+        <div class="footer-links">
+          <a href="https://github.com/ranjeet447/digital-pet">GitHub</a>
+          <a href="https://github.com/ranjeet447/digital-pet/tree/main/web">Documentation</a>
+          <a href="https://github.com/ranjeet447/digital-pet/issues">Issues</a>
+          <a href="https://www.shirofinds.com/" target="_blank" rel="noreferrer">Shiro Finds</a>
+        </div>
+      </div>
+    </footer>
+
+    <digital-pet
+      name="Shiro"
+      size="small"
+      controls="true"
+      cursor-interaction="true"
+      remember-size="false"
+    ></digital-pet>
+  </body>
+</html>
