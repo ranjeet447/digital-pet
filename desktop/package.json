@@ -1,6 +1,6 @@
 {
   "name": "digital-pet-desktop",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Cross-platform desktop host for Digital Pet.",
   "private": true,
   "main": "main.cjs",

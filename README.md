@@ -2,23 +2,23 @@
 
 Digital Pet is an open-source companion for websites, macOS, Windows, and Linux.
 The default pet is Shiro, based on the real golden retriever
-[Shiro](https://www.shirofinds.com/), and users can rename him.
+[Shiro](https://shiro.shravaniurankar.in/). Read
+[Shiro's stories](https://www.shirofinds.com/stories), or rename the pet for
+your own website.
 
 Shiro stays above normal app windows, walks and runs around the screen, follows
 the pointer, performs tricks, plays with balls, asks for food, accepts treats,
 barks when sounds are enabled, and takes naps in a corner.
 
-## Version 0.2.0
+## Version 0.3.0
 
-- Shared desktop app for macOS, Windows, and Linux
-- Framework-neutral web package and standalone browser module
-- Switchable 2D illustrated and 3D views
-- Natural golden-retriever coat and flexible tail animation
-- All trained commands plus feed, treat, and surprise actions
-- Optional sound and volume controls
-- Four persistent sizes
-- Tray controls and always-on-top desktop behavior
-- GitHub Pages demo and framework installation examples
+- Realistic procedural 3D fur (~25,000+ strands with lightweight layered shells)
+- Golden retriever anatomy with a broad muzzle, feathered ears, chest ruff, large
+  paws, plumed tail, and Shiro's red collar
+- Custom GPU-based hair shader sways for flexible coat sways
+- Interactive floppy ear secondary spring-damping physics
+- Five persistent sizes including a new "Extra Small 50%" option
+- Web and Desktop client bundle builds updated
 
 ## Install on a Website
 
@@ -44,7 +44,7 @@ instructions are in [`web/README.md`](web/README.md).
 
 ## Desktop Downloads
 
-The `v0.2.0` GitHub Release contains:
+The `v0.3.0` GitHub Release contains:
 
 - macOS Apple Silicon zip
 - macOS Intel zip
@@ -100,14 +100,14 @@ when the pointer is over Shiro or his controls.
 ## Legacy Native macOS Prototype
 
 The original Swift/AppKit prototype remains under `Sources/ShiroPet` for
-reference. Version 0.2.0 desktop releases use the shared cross-platform shell so
+reference. Version 0.3.0 desktop releases use the shared cross-platform shell so
 macOS, Windows, Linux, and web features remain identical.
 
 ## Project Documents
 
 - [`docs/platform-feature-contract.md`](docs/platform-feature-contract.md)
 - [`docs/release-plan.md`](docs/release-plan.md)
-- [`docs/release-notes-v0.2.0.md`](docs/release-notes-v0.2.0.md)
+- [`docs/release-notes-v0.3.0.md`](docs/release-notes-v0.3.0.md)
 
 ## License
 

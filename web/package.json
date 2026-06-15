@@ -1,6 +1,6 @@
 {
   "name": "@ranjeet447/digital-pet",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A customizable digital pet web component. The default pet is Shiro, a playful golden retriever.",
   "homepage": "https://ranjeet447.github.io/digital-pet/",
   "repository": {

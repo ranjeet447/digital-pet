@@ -1,7 +1,7 @@
 # Digital Pet Platform Feature Contract
 
 This contract defines the behavior shared by the web, macOS, Windows, and Linux
-versions. Version 0.2.0 uses one Web Component animation engine inside the three
+versions. Version 0.3.0 uses one Web Component animation engine inside the three
 desktop packages to keep visible features equivalent.
 
 ## Platforms
@@ -63,7 +63,7 @@ over is a staged body movement, not a flat clockwise image rotation.
 - Click or tap for a random trick
 - Drag to reposition
 - Menu containing every command
-- Small (75%), Normal (100%), Large (125%), and Extra Large (150%)
+- Extra Small (50%), Small (75%), Normal (100%), Large (125%), and Extra Large (150%)
 - Remembered size
 - Switch between 2D and 3D
 - Optional sounds and volume control
@@ -81,7 +81,7 @@ over is a staged body movement, not a flat clockwise image rotation.
 - Visible across workspaces where the operating system supports it
 - Persistent renderer, size, sound, name, and visibility preferences
 
-Operating-system cursor movement is not enabled in the shared v0.2.0 desktop
+Operating-system cursor movement is not enabled in the shared v0.3.0 desktop
 shell. Any future cursor-control feature must require explicit user opt-in and
 the relevant accessibility permission.
 
@@ -103,7 +103,7 @@ A platform build is complete when:
 - Autonomous movement, pointer follow, tricks, food requests, and naps work.
 - Balls and fetch work.
 - Sounds can be enabled, disabled, and adjusted.
-- All four sizes work and persist.
+- All five sizes work and persist.
 - Drag, click, bring-here, hide, and show work.
 - The platform package starts and exposes tray/menu controls.
 - Accessibility and reduced-motion behavior are verified.

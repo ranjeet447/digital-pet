@@ -51,7 +51,7 @@
         "name": "Digital Pet",
         "description": "An open-source animated and customizable pet for websites and desktop computers. The default pet is Shiro, a golden retriever.",
         "applicationCategory": "EntertainmentApplication",
-        "softwareVersion": "0.2.0",
+        "softwareVersion": "0.3.0",
         "operatingSystem": "Web, macOS, Windows, Linux",
         "url": "https://ranjeet447.github.io/digital-pet/",
         "downloadUrl": "https://github.com/ranjeet447/digital-pet/releases",
@@ -1235,17 +1235,18 @@
     </style>
 
     <script type="module">
-      import "../dist/index.js";
+      import "../dist/index.js?v=0.3.0";
 
       const pet = document.querySelector("digital-pet");
       const statusText = document.querySelector("[data-status]");
       const commandButtons = document.querySelectorAll("[data-command]");
       const viewButtons = document.querySelectorAll("[data-view]");
       const codeBlock = document.querySelector("[data-code]");
-      const codeTabs = document.querySelectorAll("[data-code-tab]");      const codeExamples = {
+      const codeTabs = document.querySelectorAll("[data-code-tab]");
+      const codeExamples = {
         html: `<span class="code-comment">&lt;!-- 1. Include browser script: --&gt;</span>
 <span class="code-accent">&lt;script</span> type="module"
-  src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet-v0.2.0.js"<span class="code-accent">&gt;&lt;/script&gt;</span>
+  src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet-v0.3.0.js"<span class="code-accent">&gt;&lt;/script&gt;</span>
 
 <span class="code-comment">&lt;!-- 2. Use the Web Component: --&gt;</span>
 <span class="code-accent">&lt;digital-pet</span>
@@ -1443,10 +1444,10 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
           <div class="ball ball-three" aria-hidden="true"></div>
           <div class="hero-photo">
             <img
-              src="./images/shiro-sofa.jpg"
-              alt="Shiro the golden retriever sitting happily on a sofa"
-              width="1080"
-              height="1094"
+              src="./images/shiro-closeup.jpg"
+              alt="Close portrait of Shiro the golden retriever smiling"
+              width="675"
+              height="1200"
               fetchpriority="high"
             />
           </div>
@@ -1615,14 +1616,19 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
               add more ways to personalize your companion.
             </p>
             <p>
-              Follow the real Shiro's adventures, favorite finds, and daily life
-              at
+              Read the real Shiro's adventures and daily life in
               <a
-                href="https://www.shirofinds.com/"
+                href="https://www.shirofinds.com/stories"
                 target="_blank"
                 rel="noreferrer"
                 style="color: var(--gold-dark); font-weight: 800"
-              >Shiro Finds ↗</a>.
+              >Shiro's stories ↗</a>, or visit
+              <a
+                href="https://shiro.shravaniurankar.in/"
+                target="_blank"
+                rel="noreferrer"
+                style="color: var(--gold-dark); font-weight: 800"
+              >Shiro's website ↗</a>.
             </p>
             <div class="quote">
               “Built from a real companion, designed to become yours.”
@@ -1686,7 +1692,7 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
               </button>
             </div>
             <pre><code data-code><span class="code-accent">&lt;script</span> type="module"
-  src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet-v0.2.0.js"<span class="code-accent">&gt;&lt;/script&gt;</span>
+  src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet-v0.3.0.js"<span class="code-accent">&gt;&lt;/script&gt;</span>
 
 <span class="code-accent">&lt;digital-pet</span>
   size="normal"
@@ -1721,17 +1727,17 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
               </p>
               <a
                 class="platform-download"
-                href="./downloads/digital-pet-0.2.0.tgz"
+                href="./downloads/digital-pet-0.3.0.tgz"
               >
                 Download web package
               </a>
               <a
                 class="platform-download"
-                href="./downloads/digital-pet-v0.2.0.js"
+                href="./downloads/digital-pet-v0.3.0.js"
                 download
                 style="margin-top: 9px"
               >
-                Download browser script v0.2.0
+                Download browser script v0.3.0
               </a>
             </article>
             <article class="platform-card available reveal">
@@ -1740,11 +1746,11 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
               <h3>macOS app</h3>
               <p>
                 Shared always-on-top desktop app with 2D and 3D views, sounds,
-                care actions, all tricks, four sizes, and tray controls.
+                care actions, all tricks, five sizes, and tray controls.
               </p>
               <a
                 class="platform-download"
-                href="https://github.com/ranjeet447/digital-pet/releases/tag/v0.2.0"
+                href="https://github.com/ranjeet447/digital-pet/releases/tag/v0.3.0"
               >
                 Download for macOS
               </a>
@@ -1759,7 +1765,7 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
               </p>
               <a
                 class="platform-download"
-                href="https://github.com/ranjeet447/digital-pet/releases/tag/v0.2.0"
+                href="https://github.com/ranjeet447/digital-pet/releases/tag/v0.3.0"
               >
                 Download for Windows
               </a>
@@ -1774,7 +1780,7 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
               </p>
               <a
                 class="platform-download"
-                href="https://github.com/ranjeet447/digital-pet/releases/tag/v0.2.0"
+                href="https://github.com/ranjeet447/digital-pet/releases/tag/v0.3.0"
               >
                 Download for Linux
               </a>
@@ -1869,7 +1875,8 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
           <a href="https://github.com/ranjeet447/digital-pet">GitHub</a>
           <a href="https://github.com/ranjeet447/digital-pet/tree/main/web">Documentation</a>
           <a href="https://github.com/ranjeet447/digital-pet/issues">Issues</a>
-          <a href="https://www.shirofinds.com/" target="_blank" rel="noreferrer">Shiro Finds</a>
+          <a href="https://www.shirofinds.com/stories" target="_blank" rel="noreferrer">Shiro's stories</a>
+          <a href="https://shiro.shravaniurankar.in/" target="_blank" rel="noreferrer">Shiro's website</a>
         </div>
       </div>
     </footer>

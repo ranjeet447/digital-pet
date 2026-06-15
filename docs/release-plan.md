@@ -9,9 +9,9 @@ Digital Pet, and website owners can change the displayed pet name.
 All platforms follow
 [`platform-feature-contract.md`](platform-feature-contract.md).
 
-## Version 0.2.0
+## Version 0.3.0
 
-Version 0.2.0 is the first synchronized cross-platform release.
+Version 0.3.0 introduces visual and physics realism upgrades for Shiro's 3D procedural coat, floppy ear secondary motion, and a new extra-small size.
 
 ### Web
 
@@ -39,7 +39,7 @@ Version 0.2.0 is the first synchronized cross-platform release.
 - All trained commands
 - Feed, treat, surprise, food requests, and hunger behavior
 - Optional bark sound and volume control
-- Four sizes
+- Five sizes
 - Balls and fetch
 - Autonomous movement, pointer response, tricks, and naps
 
@@ -51,18 +51,18 @@ Version 0.2.0 is the first synchronized cross-platform release.
 2. **GitHub Pages**
    - Live demo, framework examples, SEO, and web downloads
    - `https://ranjeet447.github.io/digital-pet/`
-3. **GitHub Release `v0.2.0`**
-   - `Digital-Pet-mac-v0.2.0-arm64.zip`
-   - `Digital-Pet-mac-v0.2.0-x64.zip`
-   - `Digital-Pet-win-v0.2.0-x64.exe`
-   - `Digital-Pet-linux-v0.2.0-x64.AppImage`
-   - `ranjeet447-digital-pet-0.2.0.tgz`
-   - `Digital-Pet-Web-v0.2.0.js`
+3. **GitHub Release `v0.3.0`**
+   - `Digital-Pet-mac-v0.3.0-arm64.zip`
+   - `Digital-Pet-mac-v0.3.0-x64.zip`
+   - `Digital-Pet-win-v0.3.0-x64.exe`
+   - `Digital-Pet-linux-v0.3.0-x64.AppImage`
+   - `ranjeet447-digital-pet-0.3.0.tgz`
+   - `Digital-Pet-Web-v0.3.0.js`
 4. **npm**
    - Package: `@ranjeet447/digital-pet`
    - Publish after npm ownership and authentication are configured
 
-## v0.2.0 Checklist
+## v0.3.0 Checklist
 
 - [x] Shared web and desktop architecture implemented
 - [x] Web TypeScript check passes

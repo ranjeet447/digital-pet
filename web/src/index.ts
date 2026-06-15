@@ -20,7 +20,7 @@ export const DIGITAL_PET_COMMANDS = [
   "surprise",
 ] as const;
 
-export const DIGITAL_PET_SIZES = ["small", "normal", "large", "extra-large"] as const;
+export const DIGITAL_PET_SIZES = ["extra-small", "small", "normal", "large", "extra-large"] as const;
 export const DIGITAL_PET_RENDERERS = ["2d", "3d"] as const;
 
 export type DigitalPetCommand = (typeof DIGITAL_PET_COMMANDS)[number];
@@ -67,6 +67,7 @@ const BASE_WIDTH = 220;
 const BASE_HEIGHT = 180;
 const FLOOR_MARGIN = 10;
 const SIZE_SCALE: Record<DigitalPetSize, number> = {
+  "extra-small": 0.5,
   small: 0.75,
   normal: 1,
   large: 1.25,
@@ -788,6 +789,7 @@ export class DigitalPetElement extends HTMLElement {
     }
 
     const labels: Record<DigitalPetSize, string> = {
+      "extra-small": "Extra Small 50%",
       small: "Small 75%",
       normal: "Normal 100%",
       large: "Large 125%",

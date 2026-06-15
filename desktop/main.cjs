@@ -111,10 +111,17 @@ function rebuildTrayMenu() {
       },
       { type: "separator" },
       {
-        label: "Open Shiro Finds",
+        label: "Read Shiro's Stories",
         click: async () => {
           const { shell } = require("electron");
-          await shell.openExternal("https://www.shirofinds.com/");
+          await shell.openExternal("https://www.shirofinds.com/stories");
+        },
+      },
+      {
+        label: "Visit Shiro's Website",
+        click: async () => {
+          const { shell } = require("electron");
+          await shell.openExternal("https://shiro.shravaniurankar.in/");
         },
       },
       { label: "Quit Digital Pet", role: "quit" },

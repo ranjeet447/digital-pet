@@ -12,7 +12,7 @@ but the displayed name is customizable.
   namaste, speak, quiet, fetch, feed, treat, and surprise commands
 - Optional barking sound with volume controls
 - Cursor awareness, drag interaction, autonomous behavior, and corner naps
-- Small, normal, large, and extra-large sizes saved in `localStorage`
+- Extra-small, small, normal, large, and extra-large sizes saved in `localStorage`
 - Accessible controls, Shadow DOM style isolation, reduced motion, and print handling
 - Works with plain HTML, React, Next.js, Vue, Nuxt, Angular, Svelte, SvelteKit,
   Astro, and other frameworks that support Custom Elements
@@ -48,7 +48,7 @@ Use the hosted ES module without a package manager:
 ```html
 <script
   type="module"
-  src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet-v0.2.0.js"
+  src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet-v0.3.0.js"
 ></script>
 
 <digital-pet renderer="3d" controls="true"></digital-pet>
@@ -226,7 +226,7 @@ Attributes:
 | Attribute | Values | Default |
 | --- | --- | --- |
 | `name` | any non-empty name | `Shiro` |
-| `size` | `small`, `normal`, `large`, `extra-large` | saved value or `normal` |
+| `size` | `extra-small`, `small`, `normal`, `large`, `extra-large` | saved value or `normal` |
 | `remember-size` | `true`, `false` | `true` |
 | `controls` | `true`, `false` | `true` |
 | `renderer` | `2d`, `3d`, `auto` | `auto` |
