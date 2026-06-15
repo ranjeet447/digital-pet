@@ -25,8 +25,11 @@ sed -i.bak '/sourceMappingURL=index.js.map/d' "$OUTPUT_DIR/downloads/digital-pet
 rm "$OUTPUT_DIR/downloads/"*.bak
 
 cd "$WEB_DIR"
+PACKAGE_NAME="$(node -p "require('$WEB_DIR/package.json').name")"
+CLEAN_NAME="${PACKAGE_NAME//@/}"
+CLEAN_NAME="${CLEAN_NAME//\//-}"
 npm pack --pack-destination "$OUTPUT_DIR/downloads"
-mv "$OUTPUT_DIR/downloads/ranjeet447-digital-pet-"*.tgz \
+mv "$OUTPUT_DIR/downloads/${CLEAN_NAME}-${PACKAGE_VERSION}.tgz" \
   "$OUTPUT_DIR/downloads/digital-pet-${PACKAGE_VERSION}.tgz"
 
 sed -i.bak 's#\.\./dist/index\.js#./dist/index.js#g' "$OUTPUT_DIR/index.html"

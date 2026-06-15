@@ -1253,7 +1253,7 @@
   controls="true"
   renderer="3d"
 <span class="code-accent">&gt;&lt;/digital-pet&gt;</span>`,
-        react: `<span class="code-comment">// 1. Run: npm install @ranjeet_/digital-pet</span>
+        react: `<span class="code-comment">// 1. Run: npm install @ranjeet447/digital-pet</span>
 <span class="code-comment">// 2. Implement:</span>
 <span class="code-accent">"use client";</span>
 
@@ -1261,26 +1261,26 @@ import { useEffect } from "react";
 
 export function Shiro() {
   useEffect(() =&gt; {
-    import("@ranjeet_/digital-pet");
+    import("@ranjeet447/digital-pet");
   }, []);
 
   return &lt;digital-pet controls="true" /&gt;;
 }`,
-        vue: `<span class="code-comment">&lt;!-- 1. Run: npm install @ranjeet_/digital-pet --&gt;</span>
+        vue: `<span class="code-comment">&lt;!-- 1. Run: npm install @ranjeet447/digital-pet --&gt;</span>
 <span class="code-comment">&lt;!-- 2. Implement: --&gt;</span>
 &lt;script setup&gt;
 import { onMounted } from "vue";
 
-onMounted(() =&gt; import("@ranjeet_/digital-pet"));
+onMounted(() =&gt; import("@ranjeet447/digital-pet"));
 &lt;/script&gt;
 
 &lt;template&gt;
   &lt;digital-pet renderer="3d" controls="true" /&gt;
 &lt;/template&gt;`,
-        angular: `<span class="code-comment">// 1. Run: npm install @ranjeet_/digital-pet</span>
+        angular: `<span class="code-comment">// 1. Run: npm install @ranjeet447/digital-pet</span>
 <span class="code-comment">// 2. Implement:</span>
 // main.ts
-import "@ranjeet_/digital-pet";
+import "@ranjeet447/digital-pet";
 
 // app.component.ts
 @Component({
@@ -1288,15 +1288,15 @@ import "@ranjeet_/digital-pet";
   template: \`&lt;digital-pet renderer="3d" /&gt;\`,
 })
 export class AppComponent {}`,
-        svelte: `<span class="code-comment">&lt;!-- 1. Run: npm install @ranjeet_/digital-pet --&gt;</span>
+        svelte: `<span class="code-comment">&lt;!-- 1. Run: npm install @ranjeet447/digital-pet --&gt;</span>
 <span class="code-comment">&lt;!-- 2. Implement: --&gt;</span>
 &lt;script&gt;
   import { onMount } from "svelte";
-  onMount(() =&gt; import("@ranjeet_/digital-pet"));
+  onMount(() =&gt; import("@ranjeet447/digital-pet"));
 &lt;/script&gt;
 
 &lt;digital-pet renderer="3d" controls="true" /&gt;`,
-        astro: `<span class="code-comment">&lt;!-- 1. Run: npm install @ranjeet_/digital-pet --&gt;</span>
+        astro: `<span class="code-comment">&lt;!-- 1. Run: npm install @ranjeet447/digital-pet --&gt;</span>
 <span class="code-comment">&lt;!-- 2. Implement: --&gt;</span>
 ---
 // Load the browser module from a tiny client script.
@@ -1304,12 +1304,12 @@ export class AppComponent {}`,
 
 &lt;digital-pet renderer="3d" controls="true"&gt;&lt;/digital-pet&gt;
 &lt;script&gt;
-  import "@ranjeet_/digital-pet";
+  import "@ranjeet447/digital-pet";
 &lt;/script&gt;`,
-        api: `<span class="code-comment">// 1. Run: npm install @ranjeet_/digital-pet</span>
+        api: `<span class="code-comment">// 1. Run: npm install @ranjeet447/digital-pet</span>
 <span class="code-comment">// 2. Implement:</span>
 import { mountDigitalPet }
-  from <span class="code-accent">"@ranjeet_/digital-pet"</span>;
+  from <span class="code-accent">"@ranjeet447/digital-pet"</span>;
 
 const shiro = mountDigitalPet({
   name: "Shiro",
@@ -1362,7 +1362,7 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
       });
 
       window.copyInstallCommand = function(btn) {
-        const text = "npm install @ranjeet_/digital-pet";
+        const text = "npm install @ranjeet447/digital-pet";
         navigator.clipboard.writeText(text).then(() => {
           btn.classList.add("copied");
           btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
@@ -1643,7 +1643,7 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
             </p>
             <div class="install-terminal">
               <span class="terminal-prefix">$</span>
-              <code class="terminal-code">npm install @ranjeet_/digital-pet</code>
+              <code class="terminal-code">npm install @ranjeet447/digital-pet</code>
               <button class="terminal-copy-btn" onclick="copyInstallCommand(this)" aria-label="Copy install command">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
               </button>

@@ -1,6 +1,6 @@
 # Digital Pet for the Web
 
-`@ranjeet_/digital-pet` is a framework-neutral Web Component that adds an
+`@ranjeet447/digital-pet` is a framework-neutral Web Component that adds an
 animated companion to any website. The default pet is Shiro, a golden retriever,
 but the displayed name is customizable.
 
@@ -20,13 +20,13 @@ but the displayed name is customizable.
 ## Install
 
 ```bash
-npm install @ranjeet_/digital-pet
+npm install @ranjeet447/digital-pet
 ```
 
 Import the package once in browser code:
 
 ```js
-import "@ranjeet_/digital-pet";
+import "@ranjeet447/digital-pet";
 ```
 
 Then render the custom element:
@@ -71,7 +71,7 @@ import { createElement, useEffect } from "react";
 
 export function DigitalPet() {
   useEffect(() => {
-    void import("@ranjeet_/digital-pet");
+    void import("@ranjeet447/digital-pet");
   }, []);
 
   return createElement("digital-pet", {
@@ -90,7 +90,7 @@ custom JSX type declarations.
 
 ```vue
 <script setup>
-import "@ranjeet_/digital-pet";
+import "@ranjeet447/digital-pet";
 </script>
 
 <template>
@@ -116,7 +116,7 @@ vue({
 Create `plugins/digital-pet.client.ts`:
 
 ```ts
-import "@ranjeet_/digital-pet";
+import "@ranjeet447/digital-pet";
 
 export default defineNuxtPlugin(() => {});
 ```
@@ -138,7 +138,7 @@ export default defineNuxtConfig({
 Import the package in `main.ts`:
 
 ```ts
-import "@ranjeet_/digital-pet";
+import "@ranjeet447/digital-pet";
 ```
 
 Allow the Custom Element in the component:
@@ -161,7 +161,7 @@ export class AppComponent {}
 <script>
   import { onMount } from "svelte";
 
-  onMount(() => import("@ranjeet_/digital-pet"));
+  onMount(() => import("@ranjeet447/digital-pet"));
 </script>
 
 <digital-pet renderer="3d" controls="true"></digital-pet>
@@ -178,7 +178,7 @@ small wrapper component that renders `<digital-pet>`.
 <digital-pet renderer="3d" controls="true"></digital-pet>
 
 <script>
-  import "@ranjeet_/digital-pet";
+  import "@ranjeet447/digital-pet";
 </script>
 ```
 
@@ -188,7 +188,7 @@ required.
 ## JavaScript API
 
 ```js
-import { mountDigitalPet } from "@ranjeet_/digital-pet";
+import { mountDigitalPet } from "@ranjeet447/digital-pet";
 
 const shiro = mountDigitalPet({
   name: "Shiro",

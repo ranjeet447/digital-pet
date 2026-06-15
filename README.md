@@ -23,11 +23,11 @@ barks when sounds are enabled, and takes naps in a corner.
 ## Install on a Website
 
 ```bash
-npm install @ranjeet_/digital-pet
+npm install @ranjeet447/digital-pet
 ```
 
 ```js
-import "@ranjeet_/digital-pet";
+import "@ranjeet447/digital-pet";
 ```
 
 ```html

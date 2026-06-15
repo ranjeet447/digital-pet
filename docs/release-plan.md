@@ -15,7 +15,7 @@ Version 0.2.0 is the first synchronized cross-platform release.
 
 ### Web
 
-- npm-compatible `@ranjeet_/digital-pet` package
+- npm-compatible `@ranjeet447/digital-pet` package
 - Standalone browser ES module
 - Plain HTML and JavaScript support
 - React, Next.js, Vue, Nuxt, Angular, Svelte, SvelteKit, and Astro instructions
@@ -59,7 +59,7 @@ Version 0.2.0 is the first synchronized cross-platform release.
    - `ranjeet447-digital-pet-0.2.0.tgz`
    - `Digital-Pet-Web-v0.2.0.js`
 4. **npm**
-   - Package: `@ranjeet_/digital-pet`
+   - Package: `@ranjeet447/digital-pet`
    - Publish after npm ownership and authentication are configured
 
 ## v0.2.0 Checklist
