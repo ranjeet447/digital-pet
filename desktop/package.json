@@ -1,0 +1,74 @@
+{
+  "name": "digital-pet-desktop",
+  "version": "0.2.0",
+  "description": "Cross-platform desktop host for Digital Pet.",
+  "private": true,
+  "main": "main.cjs",
+  "author": "Ranjeet",
+  "license": "MIT",
+  "scripts": {
+    "build:assets": "npm --prefix ../web run build && node scripts/build-assets.mjs",
+    "start": "npm run build:assets && electron .",
+    "dist": "npm run build:assets && electron-builder --publish never",
+    "dist:mac": "npm run build:assets && electron-builder --mac --publish never",
+    "dist:win": "npm run build:assets && electron-builder --win --publish never",
+    "dist:linux": "npm run build:assets && electron-builder --linux --publish never"
+  },
+  "build": {
+    "appId": "com.digitalpet.app",
+    "productName": "Digital Pet",
+    "artifactName": "Digital-Pet-${os}-v${version}-${arch}.${ext}",
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "files": [
+      "app/**/*",
+      "main.cjs",
+      "preload.cjs",
+      "package.json"
+    ],
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.entertainment",
+      "icon": "build/icon.png",
+      "identity": null,
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "category": "Game",
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.4.0",
+    "electron-builder": "^26.0.12"
+  }
+}

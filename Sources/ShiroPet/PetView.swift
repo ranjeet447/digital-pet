@@ -14,6 +14,8 @@ final class PetView: NSView {
     private let lightGolden = NSColor(calibratedRed: 0.96, green: 0.70, blue: 0.31, alpha: 1)
     private let cream = NSColor(calibratedRed: 0.98, green: 0.82, blue: 0.48, alpha: 1)
     private let darkGolden = NSColor(calibratedRed: 0.55, green: 0.27, blue: 0.08, alpha: 1)
+    private let deepGolden = NSColor(calibratedRed: 0.43, green: 0.21, blue: 0.07, alpha: 1)
+    private let highlightGolden = NSColor(calibratedRed: 1, green: 0.85, blue: 0.54, alpha: 1)
     private let tongue = NSColor(calibratedRed: 0.94, green: 0.38, blue: 0.48, alpha: 1)
 
     var behavior: PetBehavior = .idle {
@@ -35,6 +37,8 @@ final class PetView: NSView {
     private var messageExpiresAt: TimeInterval = 0
     private var behaviorStartedAt = ProcessInfo.processInfo.systemUptime
     private var selectedBallIndex = 0
+    private var renderedLookDirection: CGFloat = -1
+    private var renderedBodyBounce: CGFloat = 0
 
     var isNapping: Bool {
         behavior == .napping
@@ -49,6 +53,13 @@ final class PetView: NSView {
 
     override var isFlipped: Bool { false }
 
+    func advance(deltaTime: TimeInterval) {
+        let directionFactor = 1 - exp(-12 * deltaTime)
+        let bounceFactor = 1 - exp(-16 * deltaTime)
+        renderedLookDirection += (lookDirection - renderedLookDirection) * directionFactor
+        renderedBodyBounce += (bodyBounce - renderedBodyBounce) * bounceFactor
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         guard let context = NSGraphicsContext.current?.cgContext else { return }
@@ -61,9 +72,12 @@ final class PetView: NSView {
         drawBallsAtRest()
 
         context.saveGState()
-        context.translateBy(x: Self.canvasSize.width / 2, y: 10 + bodyBounce)
-        context.scaleBy(x: lookDirection, y: 1)
+        context.translateBy(x: Self.canvasSize.width / 2, y: 10 + renderedBodyBounce)
+        context.scaleBy(x: renderedLookDirection, y: 1)
         context.translateBy(x: -Self.canvasSize.width / 2, y: 0)
+        context.translateBy(x: 105, y: 60)
+        context.rotate(by: bodyLean)
+        context.translateBy(x: -105, y: -60)
         applyTrickTransform(to: context)
 
         drawShadow()
@@ -161,15 +175,38 @@ final class PetView: NSView {
         return sin(animationTime * speed) * 0.42
     }
 
+    private var bodyLean: CGFloat {
+        guard !isPaused else { return 0 }
+        switch behavior {
+        case .walking:
+            return sin(animationTime * 8) * 0.018
+        case .running, .chasing:
+            return -0.045 + sin(animationTime * 14) * 0.024
+        case .trick(.jump):
+            return sin(trickProgress * .pi * 2) * 0.04
+        case .idle:
+            return sin(animationTime * 1.4) * 0.006
+        case .napping, .trick:
+            return 0
+        }
+    }
+
     private func drawStandingShiro() {
-        drawPlumeTail(anchor: NSPoint(x: 48, y: 73), resting: false)
-
-        fillEllipse(NSRect(x: 43, y: 46, width: 112, height: 66), color: golden)
-        fillEllipse(NSRect(x: 60, y: 51, width: 78, height: 51), color: lightGolden.withAlphaComponent(0.38))
-        drawBodyFur()
-
         let legOffset = legAnimationOffset
         let jumpTuck = behavior == .trick(.jump) ? sin(trickProgress * .pi) * 12 : 0
+
+        drawPlumeTail(anchor: NSPoint(x: 48, y: 73), resting: false)
+        drawFeatheredLeg(x: 53, y: 27 - legOffset * 0.72 + jumpTuck, behind: true)
+        drawFeatheredLeg(x: 106, y: 27 + legOffset * 0.72 + jumpTuck, behind: true)
+        fillGradientEllipse(
+            NSRect(x: 43, y: 46, width: 112, height: 66),
+            colors: [deepGolden, golden, lightGolden]
+        )
+        fillEllipse(NSRect(x: 60, y: 51, width: 78, height: 51), color: lightGolden.withAlphaComponent(0.38))
+        fillEllipse(NSRect(x: 52, y: 80, width: 92, height: 27), color: deepGolden.withAlphaComponent(0.18))
+        fillEllipse(NSRect(x: 102, y: 54, width: 45, height: 48), color: highlightGolden.withAlphaComponent(0.16))
+        drawBodyFur()
+
         drawFeatheredLeg(x: 62, y: 24 + legOffset + jumpTuck)
         drawFeatheredLeg(x: 118, y: 24 - legOffset + jumpTuck)
 
@@ -182,7 +219,10 @@ final class PetView: NSView {
     }
 
     private func drawLyingShiro(asleep: Bool) {
-        fillEllipse(NSRect(x: 36, y: 31, width: 128, height: 67), color: golden)
+        fillGradientEllipse(
+            NSRect(x: 36, y: 31, width: 128, height: 67),
+            colors: [deepGolden, golden, lightGolden]
+        )
         fillEllipse(NSRect(x: 53, y: 39, width: 92, height: 48), color: lightGolden.withAlphaComponent(0.38))
         drawPlumeTail(anchor: NSPoint(x: 52, y: 63), resting: true)
         drawFurTufts(
@@ -213,7 +253,10 @@ final class PetView: NSView {
         context.scaleBy(x: 1, y: 1 - abs(sideDirection) * 0.22)
         context.translateBy(x: -105, y: -60)
 
-        fillEllipse(NSRect(x: 35, y: 31, width: 130, height: 68), color: golden)
+        fillGradientEllipse(
+            NSRect(x: 35, y: 31, width: 130, height: 68),
+            colors: [deepGolden, golden, lightGolden]
+        )
         fillEllipse(
             NSRect(x: 53, y: 40, width: 93, height: 48),
             color: lightGolden.withAlphaComponent(0.42)
@@ -253,7 +296,10 @@ final class PetView: NSView {
     private func drawSittingShiro(pose: PetTrick) {
         drawPlumeTail(anchor: NSPoint(x: 60, y: 61), resting: true)
 
-        fillEllipse(NSRect(x: 55, y: 26, width: 93, height: 82), color: golden)
+        fillGradientEllipse(
+            NSRect(x: 55, y: 26, width: 93, height: 82),
+            colors: [deepGolden, golden, lightGolden]
+        )
         fillEllipse(NSRect(x: 68, y: 31, width: 59, height: 63), color: lightGolden.withAlphaComponent(0.38))
         fillEllipse(NSRect(x: 46, y: 20, width: 47, height: 32), color: golden)
         drawBodyFur()
@@ -287,19 +333,30 @@ final class PetView: NSView {
     ) {
         let width: CGFloat = compact ? 61 : 67
         let height: CGFloat = compact ? 54 : 68
-        fillEllipse(NSRect(x: origin.x, y: origin.y, width: width, height: height), color: golden)
+        fillGradientEllipse(
+            NSRect(x: origin.x, y: origin.y, width: width, height: height),
+            colors: [deepGolden, golden, highlightGolden]
+        )
 
         drawEar(x: origin.x + 7, y: origin.y + 19, mirrored: false, compact: compact)
         drawEar(x: origin.x + width - 9, y: origin.y + 19, mirrored: true, compact: compact)
 
         let muzzleY = origin.y + (compact ? 2 : 1)
-        fillEllipse(
+        fillGradientEllipse(
             NSRect(x: origin.x + 24, y: muzzleY, width: compact ? 42 : 47, height: compact ? 31 : 35),
-            color: cream
+            colors: [
+                NSColor(calibratedRed: 0.79, green: 0.48, blue: 0.20, alpha: 1),
+                cream,
+                NSColor(calibratedRed: 1, green: 0.89, blue: 0.63, alpha: 1)
+            ]
         )
-        fillEllipse(
+        fillGradientEllipse(
             NSRect(x: origin.x + width - 10, y: origin.y + 15, width: 17, height: 13),
-            color: NSColor(calibratedWhite: 0.05, alpha: 1)
+            colors: [
+                NSColor(calibratedWhite: 0.02, alpha: 1),
+                NSColor(calibratedWhite: 0.08, alpha: 1),
+                NSColor(calibratedWhite: 0.28, alpha: 1)
+            ]
         )
         fillEllipse(
             NSRect(x: origin.x + width - 7, y: origin.y + 22, width: 5, height: 3),
@@ -324,6 +381,15 @@ final class PetView: NSView {
                 radius: 7,
                 color: tongue
             )
+            strokePath(
+                points: [
+                    CGPoint(x: origin.x + 55, y: origin.y - 11),
+                    CGPoint(x: origin.x + 55, y: origin.y + 7)
+                ],
+                color: NSColor(calibratedRed: 0.62, green: 0.19, blue: 0.29, alpha: 0.65),
+                width: 1,
+                lineCap: .round
+            )
         } else {
             strokePath(
                 points: [
@@ -338,6 +404,7 @@ final class PetView: NSView {
         }
 
         drawEarFeathering(origin: origin, width: width)
+        drawFaceDetails(origin: origin, width: width, height: height, compact: compact)
         drawCollar(x: origin.x + 11, y: origin.y + 7, width: width - 12)
     }
 
@@ -410,9 +477,34 @@ final class PetView: NSView {
         )
     }
 
-    private func drawFeatheredLeg(x: CGFloat, y: CGFloat) {
-        fillRoundedRect(NSRect(x: x, y: y, width: 24, height: 49), radius: 11, color: golden)
-        fillEllipse(NSRect(x: x - 3, y: y - 2, width: 31, height: 15), color: lightGolden)
+    private func drawFeatheredLeg(x: CGFloat, y: CGFloat, behind: Bool = false) {
+        let alpha: CGFloat = behind ? 0.72 : 1
+        fillGradientRoundedRect(
+            NSRect(x: x, y: y, width: 24, height: 49),
+            radius: 11,
+            colors: [
+                deepGolden.withAlphaComponent(alpha),
+                golden.withAlphaComponent(alpha),
+                lightGolden.withAlphaComponent(alpha)
+            ]
+        )
+        fillGradientEllipse(
+            NSRect(x: x - 3, y: y - 2, width: 31, height: 15),
+            colors: [
+                darkGolden.withAlphaComponent(alpha),
+                lightGolden.withAlphaComponent(alpha),
+                highlightGolden.withAlphaComponent(alpha)
+            ]
+        )
+        for toe in 0..<3 {
+            strokeArc(
+                center: NSPoint(x: x + 7 + CGFloat(toe) * 6, y: y + 4),
+                radius: 3,
+                start: 0.15,
+                end: 1.35,
+                color: darkGolden.withAlphaComponent(0.42 * alpha)
+            )
+        }
         for offset in stride(from: CGFloat(1), through: 20, by: 4) {
             strokePath(
                 points: [
@@ -467,8 +559,46 @@ final class PetView: NSView {
             controlPoint2: NSPoint(x: x - direction * 5, y: y + 8)
         )
         path.close()
-        darkGolden.setFill()
-        path.fill()
+        let gradient = NSGradient(colors: [deepGolden, darkGolden, golden])
+        NSGraphicsContext.saveGraphicsState()
+        path.addClip()
+        gradient?.draw(in: path.bounds, angle: 90)
+        NSGraphicsContext.restoreGraphicsState()
+    }
+
+    private func drawFaceDetails(origin: NSPoint, width: CGFloat, height: CGFloat, compact: Bool) {
+        let browY = origin.y + height - (compact ? 15 : 17)
+        strokeArc(
+            center: NSPoint(x: origin.x + 34, y: browY),
+            radius: 8,
+            start: 0.15,
+            end: 1.25,
+            color: darkGolden.withAlphaComponent(0.48)
+        )
+        strokeArc(
+            center: NSPoint(x: origin.x + 55, y: browY - 1),
+            radius: 8,
+            start: 0.15,
+            end: 1.25,
+            color: darkGolden.withAlphaComponent(0.48)
+        )
+
+        for index in 0..<3 {
+            let y = origin.y + 10 + CGFloat(index) * 4
+            fillEllipse(
+                NSRect(x: origin.x + width - 23 - CGFloat(index) * 2, y: y, width: 1.4, height: 1.4),
+                color: darkGolden.withAlphaComponent(0.55)
+            )
+            strokePath(
+                points: [
+                    CGPoint(x: origin.x + width - 21, y: y),
+                    CGPoint(x: origin.x + width + 7, y: y + CGFloat(index - 1) * 4)
+                ],
+                color: NSColor(calibratedRed: 1, green: 0.97, blue: 0.87, alpha: 0.42),
+                width: 0.8,
+                lineCap: .round
+            )
+        }
     }
 
     private func drawEarFeathering(origin: NSPoint, width: CGFloat) {
@@ -495,8 +625,17 @@ final class PetView: NSView {
     }
 
     private func drawEye(x: CGFloat, y: CGFloat) {
-        fillEllipse(NSRect(x: x, y: y, width: 8, height: 10), color: NSColor(calibratedWhite: 0.04, alpha: 1))
-        fillEllipse(NSRect(x: x + 1.7, y: y + 6, width: 2.5, height: 2.5), color: .white)
+        fillEllipse(NSRect(x: x - 1, y: y - 1, width: 10, height: 12), color: darkGolden.withAlphaComponent(0.5))
+        fillGradientEllipse(
+            NSRect(x: x, y: y, width: 8, height: 10),
+            colors: [
+                NSColor(calibratedWhite: 0.02, alpha: 1),
+                NSColor(calibratedRed: 0.23, green: 0.14, blue: 0.08, alpha: 1),
+                NSColor(calibratedRed: 0.54, green: 0.36, blue: 0.18, alpha: 1)
+            ]
+        )
+        fillEllipse(NSRect(x: x + 1.5, y: y + 6.2, width: 2.7, height: 2.7), color: .white)
+        fillEllipse(NSRect(x: x + 4.6, y: y + 2.2, width: 1.2, height: 1.2), color: .white.withAlphaComponent(0.72))
     }
 
     private func drawClosedEye(x: CGFloat, y: CGFloat) {
@@ -586,7 +725,10 @@ final class PetView: NSView {
     private var trickProgress: CGFloat {
         guard case .trick(let trick) = behavior else { return 0 }
         let elapsed = max(0, ProcessInfo.processInfo.systemUptime - behaviorStartedAt)
-        return min(CGFloat(elapsed / trick.duration), 1)
+        let progress = min(CGFloat(elapsed / trick.duration), 1)
+        return progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - pow(-2 * progress + 2, 3) / 2
     }
 
     private func applyTrickTransform(to context: CGContext) {
@@ -669,9 +811,25 @@ final class PetView: NSView {
         NSBezierPath(ovalIn: rect).fill()
     }
 
+    private func fillGradientEllipse(_ rect: NSRect, colors: [NSColor]) {
+        let path = NSBezierPath(ovalIn: rect)
+        NSGraphicsContext.saveGraphicsState()
+        path.addClip()
+        NSGradient(colors: colors)?.draw(in: rect, angle: -35)
+        NSGraphicsContext.restoreGraphicsState()
+    }
+
     private func fillRoundedRect(_ rect: NSRect, radius: CGFloat, color: NSColor) {
         color.setFill()
         NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+    }
+
+    private func fillGradientRoundedRect(_ rect: NSRect, radius: CGFloat, colors: [NSColor]) {
+        let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
+        NSGraphicsContext.saveGraphicsState()
+        path.addClip()
+        NSGradient(colors: colors)?.draw(in: rect, angle: -35)
+        NSGraphicsContext.restoreGraphicsState()
     }
 
     private func strokePath(

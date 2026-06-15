@@ -1,3 +1,5 @@
+import { ThreePetRenderer } from "./three-renderer.js";
+
 export const DIGITAL_PET_COMMANDS = [
   "sit",
   "walk",
@@ -13,17 +15,25 @@ export const DIGITAL_PET_COMMANDS = [
   "speak",
   "quiet",
   "fetch",
+  "feed",
+  "treat",
+  "surprise",
 ] as const;
 
 export const DIGITAL_PET_SIZES = ["small", "normal", "large", "extra-large"] as const;
+export const DIGITAL_PET_RENDERERS = ["2d", "3d"] as const;
 
 export type DigitalPetCommand = (typeof DIGITAL_PET_COMMANDS)[number];
 export type DigitalPetSize = (typeof DIGITAL_PET_SIZES)[number];
+export type DigitalPetRenderer = (typeof DIGITAL_PET_RENDERERS)[number];
 
 export interface DigitalPetOptions {
   name?: string;
   controls?: boolean;
   cursorInteraction?: boolean;
+  sound?: boolean;
+  volume?: number;
+  renderer?: "auto" | DigitalPetRenderer;
   size?: DigitalPetSize;
   zIndex?: number;
   startCorner?: "bottom-left" | "bottom-right";
@@ -44,7 +54,11 @@ type Behavior =
   | "salute"
   | "namaste"
   | "speak"
-  | "fetch";
+  | "fetch"
+  | "feed"
+  | "treat"
+  | "surprise"
+  | "ask-food";
 
 type Point = { x: number; y: number };
 
@@ -73,6 +87,9 @@ const COMMAND_LABELS: Record<DigitalPetCommand, string> = {
   speak: "Speak",
   quiet: "Quiet",
   fetch: "Fetch a Ball",
+  feed: "Feed",
+  treat: "Give a Treat",
+  surprise: "Surprise Trick",
 };
 const TRICK_DURATION: Partial<Record<Behavior, number>> = {
   sit: 2800,
@@ -85,12 +102,18 @@ const TRICK_DURATION: Partial<Record<Behavior, number>> = {
   namaste: 2500,
   speak: 1800,
   fetch: 3400,
+  feed: 3000,
+  treat: 2400,
+  surprise: 2800,
+  "ask-food": 3200,
 };
 const BALL_COLORS = ["#ef4136", "#258be7", "#f4b71b", "#55b957", "#9559d6"];
 const GOLDEN = "#d07a2c";
 const LIGHT_GOLDEN = "#f2b24f";
 const CREAM = "#f7d078";
 const DARK_GOLDEN = "#874713";
+const DEEP_GOLDEN = "#6d3513";
+const HIGHLIGHT_GOLDEN = "#ffd98a";
 const TONGUE = "#ed6378";
 
 const template = document.createElement("template");
@@ -105,7 +128,7 @@ template.innerHTML = `
       z-index: var(--digital-pet-z-index, 2147483000);
     }
 
-    canvas {
+    .pet-canvas {
       position: fixed;
       left: 0;
       top: 0;
@@ -116,11 +139,11 @@ template.innerHTML = `
       outline: none;
     }
 
-    canvas:active {
+    .pet-canvas:active {
       cursor: grabbing;
     }
 
-    canvas:focus-visible,
+    .pet-canvas:focus-visible,
     .launcher:focus-visible,
     button:focus-visible {
       outline: 3px solid #fff;
@@ -213,15 +236,29 @@ template.innerHTML = `
       text-transform: uppercase;
     }
 
+    .pet-name-input {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid #ead8c4;
+      border-radius: 10px;
+      background: #fff;
+      color: #3b291d;
+      font: inherit;
+      font-weight: 650;
+      padding: 8px 10px;
+    }
+
     .commands,
-    .sizes {
+    .sizes,
+    .renderers {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 6px;
     }
 
     button.command,
-    button.size {
+    button.size,
+    button.renderer {
       min-height: 34px;
       border: 1px solid #ead8c4;
       border-radius: 10px;
@@ -237,7 +274,9 @@ template.innerHTML = `
 
     button.command:hover,
     button.size:hover,
-    button.size[aria-pressed="true"] {
+    button.size[aria-pressed="true"],
+    button.renderer:hover,
+    button.renderer[aria-pressed="true"] {
       border-color: #c98245;
       background: #fff4e7;
       color: #7c431b;
@@ -268,6 +307,33 @@ template.innerHTML = `
       background: #dcc1a4;
     }
 
+    .sound-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .sound-toggle {
+      min-height: 34px;
+      border: 1px solid #ead8c4;
+      border-radius: 10px;
+      background: #fff;
+      color: #3b291d;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 9px;
+      text-align: left;
+    }
+
+    .sound-volume {
+      width: 88px;
+      accent-color: #a95e24;
+    }
+
     :host([controls="false"]) .launcher,
     :host([controls="false"]) .panel,
     :host([hidden]) {
@@ -287,17 +353,30 @@ template.innerHTML = `
       }
     }
   </style>
-  <canvas tabindex="0" role="button" aria-label="Shiro the digital golden retriever. Click for a trick, drag to move."></canvas>
+  <canvas class="pet-canvas pet-3d" tabindex="0" role="button" aria-label="Shiro the digital golden retriever. Click for a trick, drag to move." hidden></canvas>
+  <canvas class="pet-canvas pet-2d" tabindex="0" role="button" aria-label="Shiro the digital golden retriever. Click for a trick, drag to move."></canvas>
   <button class="launcher" type="button" aria-label="Open Shiro controls" aria-expanded="false">🐾</button>
   <section class="panel" aria-label="Shiro controls" data-open="false">
     <div class="panel-header">
       <div class="panel-title">Play with <span data-pet-name>Shiro</span></div>
       <button class="close" type="button" aria-label="Close Shiro controls">×</button>
     </div>
+    <div class="section-title">Pet name</div>
+    <input class="pet-name-input" type="text" value="Shiro" maxlength="32" aria-label="Pet name" />
     <div class="section-title">All tricks & commands</div>
     <div class="commands"></div>
     <div class="section-title">Size</div>
     <div class="sizes"></div>
+    <div class="section-title">View</div>
+    <div class="renderers">
+      <button class="renderer" type="button" data-renderer="2d" aria-pressed="false">2D illustrated</button>
+      <button class="renderer" type="button" data-renderer="3d" aria-pressed="false">3D model</button>
+    </div>
+    <div class="section-title">Sound</div>
+    <div class="sound-row">
+      <button class="sound-toggle" type="button" aria-pressed="false">Enable sounds</button>
+      <input class="sound-volume" type="range" min="0" max="1" step="0.05" value="0.65" aria-label="Sound volume" />
+    </div>
     <div class="footer-actions">
       <button class="bring" type="button">Bring here</button>
       <button class="hide-pet" type="button">Hide <span data-pet-name>Shiro</span></button>
@@ -309,16 +388,20 @@ export class DigitalPetElement extends HTMLElement {
   static readonly tagName = "digital-pet";
 
   static get observedAttributes(): string[] {
-    return ["name", "size", "controls", "cursor-interaction", "z-index"];
+    return ["name", "size", "controls", "cursor-interaction", "z-index", "sound", "volume", "renderer"];
   }
 
-  private readonly canvas: HTMLCanvasElement;
+  private canvas: HTMLCanvasElement;
+  private readonly fallbackCanvas: HTMLCanvasElement;
+  private readonly webglCanvas: HTMLCanvasElement;
   private readonly context: CanvasRenderingContext2D;
   private readonly launcher: HTMLButtonElement;
   private readonly panel: HTMLElement;
   private readonly commandsContainer: HTMLElement;
   private readonly sizesContainer: HTMLElement;
   private readonly reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  private readonly barkAudio = new Audio(new URL("../assets/bark-cute.mp3", import.meta.url).href);
+  private threeRenderer: ThreePetRenderer | null = null;
   private animationFrame = 0;
   private lastFrame = performance.now();
   private nextDecisionAt = performance.now() + 4500;
@@ -329,6 +412,9 @@ export class DigitalPetElement extends HTMLElement {
   private position: Point = { x: 20, y: 20 };
   private targetX: number | null = null;
   private direction = -1;
+  private facingScale = -1;
+  private horizontalVelocity = 0;
+  private renderedBounce = 0;
   private pointer: Point = { x: -1000, y: -1000 };
   private pointerMovedAt = 0;
   private dragging = false;
@@ -339,13 +425,20 @@ export class DigitalPetElement extends HTMLElement {
   private visible = true;
   private connected = false;
   private resizeObserver: ResizeObserver | null = null;
+  private soundEnabled = false;
+  private volume = 0.65;
+  private rendererValue: DigitalPetRenderer = "2d";
+  private hunger = 18;
+  private lastHungerUpdate = performance.now();
 
   constructor() {
     super();
     const shadow = this.attachShadow({ mode: "open" });
     shadow.append(template.content.cloneNode(true));
 
-    this.canvas = this.requireElement("canvas");
+    this.fallbackCanvas = this.requireElement(".pet-2d");
+    this.webglCanvas = this.requireElement(".pet-3d");
+    this.canvas = this.fallbackCanvas;
     const context = this.canvas.getContext("2d");
     if (!context) {
       throw new Error("Shiro requires Canvas 2D support.");
@@ -355,6 +448,7 @@ export class DigitalPetElement extends HTMLElement {
     this.panel = this.requireElement(".panel");
     this.commandsContainer = this.requireElement(".commands");
     this.sizesContainer = this.requireElement(".sizes");
+    this.barkAudio.preload = "auto";
 
     this.renderControlButtons();
     this.bindControls();
@@ -365,6 +459,10 @@ export class DigitalPetElement extends HTMLElement {
     this.connected = true;
 
     this.style.setProperty("--digital-pet-z-index", this.getAttribute("z-index") ?? "2147483000");
+    this.soundEnabled = this.getAttribute("sound") === "true";
+    this.volume = clamp(Number(this.getAttribute("volume") ?? "0.65"), 0, 1);
+    this.barkAudio.volume = this.volume;
+    this.initializeRenderer();
     this.updatePetName();
     this.sizeValue = this.readInitialSize();
     this.setAttribute("size", this.sizeValue);
@@ -392,6 +490,8 @@ export class DigitalPetElement extends HTMLElement {
     this.reducedMotion.removeEventListener("change", this.handleReducedMotionChange);
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    this.threeRenderer?.dispose();
+    this.threeRenderer = null;
   }
 
   attributeChangedCallback(name: string, _oldValue: string | null, newValue: string | null): void {
@@ -403,6 +503,27 @@ export class DigitalPetElement extends HTMLElement {
     }
     if (name === "name") {
       this.updatePetName();
+      if (this.connected) {
+        this.dispatchEvent(
+          new CustomEvent("digital-pet-name-change", {
+            bubbles: true,
+            composed: true,
+            detail: { name: this.petName },
+          }),
+        );
+      }
+    }
+    if (name === "sound") {
+      this.soundEnabled = newValue === "true";
+      this.syncSoundControls();
+    }
+    if (name === "volume" && newValue !== null) {
+      this.volume = clamp(Number(newValue), 0, 1);
+      this.barkAudio.volume = this.volume;
+      this.syncSoundControls();
+    }
+    if (name === "renderer" && this.connected) {
+      this.initializeRenderer();
     }
   }
 
@@ -436,12 +557,32 @@ export class DigitalPetElement extends HTMLElement {
         this.setTimedBehavior("sit", TRICK_DURATION.sit ?? 2800);
         this.say("Good sit!");
         break;
+      case "feed":
+        this.hunger = 0;
+        this.setTimedBehavior("feed", TRICK_DURATION.feed ?? 3000);
+        this.say("Dinner!");
+        this.playBark("happy");
+        this.dispatchCareEvent("feed");
+        break;
+      case "treat":
+        this.hunger = Math.max(0, this.hunger - 28);
+        this.setTimedBehavior("treat", TRICK_DURATION.treat ?? 2400);
+        this.say("Treat!");
+        this.playBark("happy");
+        this.dispatchCareEvent("treat");
+        break;
+      case "surprise":
+        this.setTimedBehavior("surprise", TRICK_DURATION.surprise ?? 2800);
+        this.say("Surprise!");
+        this.playBark("excited");
+        break;
       default:
         if (command === "fetch") {
           this.ballColor = BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)];
         }
         this.setTimedBehavior(command, TRICK_DURATION[command] ?? 2400);
         this.say(COMMAND_LABELS[command] + "!");
+        if (command === "speak") this.playBark("speak");
     }
 
     this.dispatchEvent(
@@ -503,9 +644,24 @@ export class DigitalPetElement extends HTMLElement {
     );
   }
 
+  setRenderer(renderer: DigitalPetRenderer): void {
+    if (!isDigitalPetRenderer(renderer)) {
+      throw new Error(`Unknown Digital Pet renderer: ${renderer}`);
+    }
+    if (this.getAttribute("renderer") === renderer) {
+      if (this.rendererValue !== renderer) this.initializeRenderer();
+      return;
+    }
+    this.setAttribute("renderer", renderer);
+  }
+
   bringToPointer(): void {
     const x = this.pointer.x >= 0 ? this.pointer.x : window.innerWidth / 2;
     const y = this.pointer.y >= 0 ? this.pointer.y : window.innerHeight / 2;
+    this.bringTo(x, y);
+  }
+
+  bringTo(x: number, y: number): void {
     this.position.x = x - this.displayWidth / 2;
     this.position.y = Math.min(y - this.displayHeight * 0.55, window.innerHeight - this.displayHeight);
     this.clampPosition();
@@ -514,14 +670,23 @@ export class DigitalPetElement extends HTMLElement {
   }
 
   show(): void {
+    const changed = !this.visible;
     this.visible = true;
     this.canvas.hidden = false;
+    if (changed) this.dispatchVisibilityChange();
   }
 
   hide(): void {
+    const changed = this.visible;
     this.visible = false;
-    this.canvas.hidden = true;
+    this.fallbackCanvas.hidden = true;
+    this.webglCanvas.hidden = true;
     this.closePanel();
+    if (changed) this.dispatchVisibilityChange();
+  }
+
+  get isVisible(): boolean {
+    return this.visible;
   }
 
   private get displayWidth(): number {
@@ -545,16 +710,59 @@ export class DigitalPetElement extends HTMLElement {
     this.shadowRoot?.querySelectorAll<HTMLElement>("[data-pet-name]").forEach((element) => {
       element.textContent = name;
     });
-    this.canvas.setAttribute(
-      "aria-label",
-      `${name}, the digital golden retriever. Click for a trick, drag to move.`,
-    );
+    const input = this.shadowRoot?.querySelector<HTMLInputElement>(".pet-name-input");
+    if (input && input.value !== name) input.value = name;
+    for (const canvas of [this.fallbackCanvas, this.webglCanvas]) {
+      canvas.setAttribute(
+        "aria-label",
+        `${name}, the digital golden retriever. Click for a trick, drag to move.`,
+      );
+    }
     this.launcher.setAttribute("aria-label", `Open ${name} controls`);
     this.panel.setAttribute("aria-label", `${name} controls`);
     this.requireElement<HTMLButtonElement>(".close").setAttribute(
       "aria-label",
       `Close ${name} controls`,
     );
+  }
+
+  private dispatchCareEvent(action: "feed" | "treat"): void {
+    this.dispatchEvent(
+      new CustomEvent("digital-pet-care", {
+        bubbles: true,
+        composed: true,
+        detail: { action, hunger: Math.round(this.hunger) },
+      }),
+    );
+  }
+
+  private dispatchVisibilityChange(): void {
+    this.dispatchEvent(
+      new CustomEvent("digital-pet-visibility-change", {
+        bubbles: true,
+        composed: true,
+        detail: { visible: this.visible },
+      }),
+    );
+  }
+
+  private playBark(kind: "greeting" | "happy" | "excited" | "speak" | "hungry"): void {
+    if (!this.soundEnabled || this.volume <= 0) return;
+    const audio = this.barkAudio.cloneNode(true) as HTMLAudioElement;
+    audio.volume = this.volume * (kind === "hungry" ? 0.58 : kind === "greeting" ? 0.72 : 0.88);
+    audio.playbackRate =
+      kind === "hungry"
+        ? 0.78
+        : kind === "happy"
+          ? 1.16
+          : kind === "excited"
+            ? 1.3
+            : kind === "greeting"
+              ? 0.96
+              : 1;
+    void audio.play().catch(() => {
+      // Browsers may still block audio until the next direct user gesture.
+    });
   }
 
   private requireElement<T extends Element>(selector: string): T {
@@ -595,6 +803,13 @@ export class DigitalPetElement extends HTMLElement {
       button.addEventListener("click", () => this.setSize(size));
       this.sizesContainer.append(button);
     }
+
+    this.shadowRoot?.querySelectorAll<HTMLButtonElement>("[data-renderer]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const renderer = button.dataset.renderer;
+        if (renderer && isDigitalPetRenderer(renderer)) this.setRenderer(renderer);
+      });
+    });
   }
 
   private bindControls(): void {
@@ -614,15 +829,35 @@ export class DigitalPetElement extends HTMLElement {
     });
     this.requireElement<HTMLButtonElement>(".hide-pet").addEventListener("click", () => this.hide());
 
-    this.canvas.addEventListener("pointerdown", this.handlePointerDown);
-    this.canvas.addEventListener("pointermove", this.handleCanvasPointerMove);
-    this.canvas.addEventListener("pointerup", this.handlePointerUp);
-    this.canvas.addEventListener("pointercancel", this.handlePointerUp);
-    this.canvas.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        this.randomTrick();
-      }
+    for (const canvas of [this.fallbackCanvas, this.webglCanvas]) {
+      canvas.addEventListener("pointerdown", this.handlePointerDown);
+      canvas.addEventListener("pointermove", this.handleCanvasPointerMove);
+      canvas.addEventListener("pointerup", this.handlePointerUp);
+      canvas.addEventListener("pointercancel", this.handlePointerUp);
+      canvas.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          this.randomTrick();
+        }
+      });
+    }
+
+    const soundToggle = this.requireElement<HTMLButtonElement>(".sound-toggle");
+    const soundVolume = this.requireElement<HTMLInputElement>(".sound-volume");
+    const nameInput = this.requireElement<HTMLInputElement>(".pet-name-input");
+    nameInput.addEventListener("input", () => {
+      const name = nameInput.value.trim();
+      if (name && name !== this.petName) this.setAttribute("name", name);
+    });
+    nameInput.addEventListener("blur", () => {
+      if (!nameInput.value.trim()) nameInput.value = this.petName;
+    });
+    soundToggle.addEventListener("click", () => {
+      this.setAttribute("sound", String(!this.soundEnabled));
+      if (this.soundEnabled) this.playBark("greeting");
+    });
+    soundVolume.addEventListener("input", () => {
+      this.setAttribute("volume", soundVolume.value);
     });
   }
 
@@ -662,11 +897,79 @@ export class DigitalPetElement extends HTMLElement {
 
   private applyCanvasSize(): void {
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    this.canvas.width = Math.round(BASE_WIDTH * ratio);
-    this.canvas.height = Math.round(BASE_HEIGHT * ratio);
-    this.canvas.style.width = `${this.displayWidth}px`;
-    this.canvas.style.height = `${this.displayHeight}px`;
+    this.fallbackCanvas.width = Math.round(BASE_WIDTH * ratio);
+    this.fallbackCanvas.height = Math.round(BASE_HEIGHT * ratio);
+    for (const canvas of [this.fallbackCanvas, this.webglCanvas]) {
+      canvas.style.width = `${this.displayWidth}px`;
+      canvas.style.height = `${this.displayHeight}px`;
+    }
     this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    this.threeRenderer?.resize();
+  }
+
+  private initializeRenderer(): void {
+    const preference = this.getAttribute("renderer") ?? "auto";
+    const previousRenderer = this.rendererValue;
+    this.threeRenderer?.dispose();
+    this.threeRenderer = null;
+
+    if (preference === "2d") {
+      this.rendererValue = "2d";
+      this.canvas = this.fallbackCanvas;
+      this.webglCanvas.hidden = true;
+      this.fallbackCanvas.hidden = !this.visible;
+      this.syncRendererControls();
+      this.dispatchRendererChange(previousRenderer);
+      return;
+    }
+
+    try {
+      this.threeRenderer = new ThreePetRenderer(this.webglCanvas);
+      this.rendererValue = "3d";
+      this.canvas = this.webglCanvas;
+      this.webglCanvas.hidden = !this.visible;
+      this.fallbackCanvas.hidden = true;
+    } catch {
+      this.threeRenderer = null;
+      this.rendererValue = "2d";
+      this.canvas = this.fallbackCanvas;
+      this.webglCanvas.hidden = true;
+      this.fallbackCanvas.hidden = !this.visible;
+      if (preference === "3d") {
+        this.dispatchEvent(new CustomEvent("digital-pet-renderer-fallback"));
+      }
+    }
+    this.applyCanvasSize();
+    this.syncRendererControls();
+    this.syncSoundControls();
+    this.dispatchRendererChange(previousRenderer);
+  }
+
+  private dispatchRendererChange(previousRenderer: DigitalPetRenderer): void {
+    if (previousRenderer === this.rendererValue) return;
+    this.dispatchEvent(
+      new CustomEvent("digital-pet-renderer-change", {
+        bubbles: true,
+        composed: true,
+        detail: { renderer: this.rendererValue },
+      }),
+    );
+  }
+
+  private syncRendererControls(): void {
+    this.shadowRoot?.querySelectorAll<HTMLButtonElement>("[data-renderer]").forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.renderer === this.rendererValue));
+    });
+  }
+
+  private syncSoundControls(): void {
+    const button = this.shadowRoot?.querySelector<HTMLButtonElement>(".sound-toggle");
+    const volume = this.shadowRoot?.querySelector<HTMLInputElement>(".sound-volume");
+    if (button) {
+      button.textContent = this.soundEnabled ? "Disable sounds" : "Enable sounds";
+      button.setAttribute("aria-pressed", String(this.soundEnabled));
+    }
+    if (volume) volume.value = String(this.volume);
   }
 
   private syncSizeButtons(): void {
@@ -740,13 +1043,30 @@ export class DigitalPetElement extends HTMLElement {
 
     if (this.visible) {
       this.update(now, deltaSeconds);
-      this.draw(now / 1000);
+      this.facingScale = damp(this.facingScale, this.direction, 12, deltaSeconds);
+      this.renderedBounce = damp(this.renderedBounce, this.bodyBounce(now / 1000), 16, deltaSeconds);
+      if (this.threeRenderer) {
+        this.threeRenderer.render({
+          behavior: this.behavior,
+          progress: this.behaviorProgress,
+          time: now / 1000,
+          facing: this.facingScale,
+          ballColor: this.ballColor,
+          reducedMotion: this.reducedMotion.matches,
+        });
+      } else {
+        this.draw(now / 1000);
+      }
       this.canvas.style.transform = `translate3d(${this.position.x}px, ${this.position.y}px, 0)`;
     }
     this.animationFrame = requestAnimationFrame(this.tick);
   };
 
   private update(now: number, deltaSeconds: number): void {
+    const hungerElapsedMinutes = (now - this.lastHungerUpdate) / 60000;
+    this.lastHungerUpdate = now;
+    this.hunger = clamp(this.hunger + hungerElapsedMinutes * 2.4, 0, 100);
+
     if (this.behaviorEndsAt !== null && now >= this.behaviorEndsAt) {
       this.behaviorEndsAt = null;
       this.setBehavior("idle");
@@ -798,12 +1118,16 @@ export class DigitalPetElement extends HTMLElement {
     if (Math.abs(difference) < 3) {
       this.position.x = this.targetX;
       this.targetX = null;
+      this.horizontalVelocity = 0;
       this.setBehavior("idle");
       this.nextDecisionAt = performance.now() + randomBetween(3000, 7000);
       return;
     }
     this.direction = difference < 0 ? -1 : 1;
-    this.position.x += this.direction * speed * deltaSeconds;
+    const approachScale = clamp(Math.abs(difference) / 70, 0.2, 1);
+    const desiredVelocity = this.direction * speed * approachScale;
+    this.horizontalVelocity = damp(this.horizontalVelocity, desiredVelocity, 9, deltaSeconds);
+    this.position.x += this.horizontalVelocity * deltaSeconds;
     this.clampPosition();
   }
 
@@ -812,11 +1136,26 @@ export class DigitalPetElement extends HTMLElement {
     const difference = desiredX - this.position.x;
     if (Math.abs(difference) < 55) return;
     this.direction = difference < 0 ? -1 : 1;
-    this.position.x += this.direction * 88 * deltaSeconds;
+    this.horizontalVelocity = damp(this.horizontalVelocity, this.direction * 88, 10, deltaSeconds);
+    this.position.x += this.horizontalVelocity * deltaSeconds;
     this.clampPosition();
   }
 
   private chooseAutonomousBehavior(): void {
+    if (this.hunger >= 72) {
+      this.setTimedBehavior("ask-food", TRICK_DURATION["ask-food"] ?? 3200);
+      this.say("Food, please?");
+      this.playBark("hungry");
+      this.dispatchEvent(
+        new CustomEvent("digital-pet-food-request", {
+          bubbles: true,
+          composed: true,
+          detail: { hunger: Math.round(this.hunger) },
+        }),
+      );
+      return;
+    }
+
     const roll = Math.random() * 100;
     if (roll < 38) {
       this.startMoving(false);
@@ -847,6 +1186,9 @@ export class DigitalPetElement extends HTMLElement {
     if (!["walking", "running"].includes(behavior)) {
       this.targetX = null;
     }
+    if (!["walking", "running", "chasing"].includes(behavior)) {
+      this.horizontalVelocity = 0;
+    }
   }
 
   private setTimedBehavior(behavior: Behavior, durationMs: number): void {
@@ -869,12 +1211,16 @@ export class DigitalPetElement extends HTMLElement {
   }
 
   private say(text: string): void {
-    this.canvas.setAttribute("aria-label", `${this.petName} says ${text}`);
+    for (const canvas of [this.fallbackCanvas, this.webglCanvas]) {
+      canvas.setAttribute("aria-label", `${this.petName} says ${text}`);
+    }
     window.setTimeout(() => {
-      this.canvas.setAttribute(
-        "aria-label",
-        `${this.petName}, the digital golden retriever. Click for a trick, drag to move.`,
-      );
+      for (const canvas of [this.fallbackCanvas, this.webglCanvas]) {
+        canvas.setAttribute(
+          "aria-label",
+          `${this.petName}, the digital golden retriever. Click for a trick, drag to move.`,
+        );
+      }
     }, 2200);
   }
 
@@ -887,9 +1233,13 @@ export class DigitalPetElement extends HTMLElement {
     ctx.scale(1, -1);
 
     this.drawRestingBalls(ctx);
-    ctx.translate(BASE_WIDTH / 2, 11 + this.bodyBounce(time));
-    ctx.scale(this.direction, 1);
+    ctx.translate(BASE_WIDTH / 2, 11 + this.renderedBounce);
+    ctx.scale(this.facingScale, 1);
     ctx.translate(-BASE_WIDTH / 2, 0);
+    const lean = this.bodyLean(time);
+    ctx.translate(108, 62);
+    ctx.rotate(lean);
+    ctx.translate(-108, -62);
     this.applyTrickTransform(ctx);
 
     this.drawShadow(ctx);
@@ -919,6 +1269,14 @@ export class DigitalPetElement extends HTMLElement {
     return Math.sin(time * 2) * 1.2;
   }
 
+  private bodyLean(time: number): number {
+    if (this.reducedMotion.matches || ["sleeping", "down", "roll-over"].includes(this.behavior)) return 0;
+    if (this.behavior === "walking") return Math.sin(time * 8) * 0.018;
+    if (["running", "chasing"].includes(this.behavior)) return -0.045 + Math.sin(time * 14) * 0.024;
+    if (this.behavior === "jump") return Math.sin(this.behaviorProgress * Math.PI * 2) * 0.04;
+    return Math.sin(time * 1.4) * 0.006;
+  }
+
   private wagAngle(time: number): number {
     if (this.reducedMotion.matches) return 0;
     const speed =
@@ -936,7 +1294,7 @@ export class DigitalPetElement extends HTMLElement {
 
   private get behaviorProgress(): number {
     const duration = TRICK_DURATION[this.behavior] ?? 2400;
-    return clamp((performance.now() - this.behaviorStartedAt) / duration, 0, 1);
+    return easeInOutCubic(clamp((performance.now() - this.behaviorStartedAt) / duration, 0, 1));
   }
 
   private applyTrickTransform(ctx: CanvasRenderingContext2D): void {
@@ -945,17 +1303,22 @@ export class DigitalPetElement extends HTMLElement {
   }
 
   private drawStandingShiro(ctx: CanvasRenderingContext2D, time: number): void {
-    this.drawPlumeTail(ctx, { x: 49, y: 75 }, false, time);
-    ellipse(ctx, 43, 47, 115, 68, GOLDEN);
-    ellipse(ctx, 61, 53, 79, 50, colorWithAlpha(LIGHT_GOLDEN, 0.42));
-    this.drawFurTufts(ctx, { x: 59, y: 59 }, { x: 132, y: 61 }, 9, colorWithAlpha(CREAM, 0.55));
-    this.drawFurTufts(ctx, { x: 73, y: 95 }, { x: 132, y: 97 }, 8, colorWithAlpha(DARK_GOLDEN, 0.35));
-
     const legOffset = this.legOffset(time);
     const jumpTuck =
       this.behavior === "jump" ? Math.sin(this.behaviorProgress * Math.PI) * 13 : 0;
-    this.drawFeatheredLeg(ctx, 63, 24 + legOffset + jumpTuck);
-    this.drawFeatheredLeg(ctx, 120, 24 - legOffset + jumpTuck);
+
+    this.drawPlumeTail(ctx, { x: 49, y: 75 }, false, time);
+    this.drawFeatheredLeg(ctx, 54, 27 - legOffset * 0.72 + jumpTuck, true);
+    this.drawFeatheredLeg(ctx, 108, 27 + legOffset * 0.72 + jumpTuck, true);
+    gradientEllipse(ctx, 43, 47, 115, 68, DEEP_GOLDEN, GOLDEN, LIGHT_GOLDEN);
+    ellipse(ctx, 57, 49, 89, 54, colorWithAlpha(LIGHT_GOLDEN, 0.34));
+    ellipse(ctx, 52, 82, 95, 28, colorWithAlpha(DEEP_GOLDEN, 0.19));
+    ellipse(ctx, 104, 55, 46, 50, colorWithAlpha(HIGHLIGHT_GOLDEN, 0.16));
+    this.drawFurTufts(ctx, { x: 59, y: 59 }, { x: 132, y: 61 }, 9, colorWithAlpha(CREAM, 0.55));
+    this.drawFurTufts(ctx, { x: 73, y: 95 }, { x: 132, y: 97 }, 8, colorWithAlpha(DARK_GOLDEN, 0.35));
+
+    this.drawFeatheredLeg(ctx, 63, 24 + legOffset + jumpTuck, false);
+    this.drawFeatheredLeg(ctx, 120, 24 - legOffset + jumpTuck, false);
     this.drawChestRuff(ctx, { x: 137, y: 77 });
     this.drawHead(ctx, { x: 123, y: 71 }, this.mouthOpen, false, false);
 
@@ -965,7 +1328,7 @@ export class DigitalPetElement extends HTMLElement {
   }
 
   private drawLyingShiro(ctx: CanvasRenderingContext2D, asleep: boolean, time: number): void {
-    ellipse(ctx, 35, 31, 132, 69, GOLDEN);
+    gradientEllipse(ctx, 35, 31, 132, 69, DEEP_GOLDEN, GOLDEN, LIGHT_GOLDEN);
     ellipse(ctx, 53, 40, 94, 49, colorWithAlpha(LIGHT_GOLDEN, 0.42));
     this.drawPlumeTail(ctx, { x: 53, y: 65 }, true, time);
     this.drawFurTufts(ctx, { x: 61, y: 42 }, { x: 132, y: 45 }, 8, colorWithAlpha(CREAM, 0.75));
@@ -996,7 +1359,7 @@ export class DigitalPetElement extends HTMLElement {
     ctx.scale(1, 1 - Math.abs(sideDirection) * 0.23);
     ctx.translate(-108, -62);
 
-    ellipse(ctx, 34, 31, 135, 70, GOLDEN);
+    gradientEllipse(ctx, 34, 31, 135, 70, DEEP_GOLDEN, GOLDEN, LIGHT_GOLDEN);
     ellipse(ctx, 53, 40, 95, 49, colorWithAlpha(LIGHT_GOLDEN, 0.42));
     this.drawPlumeTail(ctx, { x: 52, y: 65 }, true, time);
     this.drawFurTufts(ctx, { x: 60, y: 43 }, { x: 132, y: 45 }, 8, colorWithAlpha(CREAM, 0.72));
@@ -1016,7 +1379,7 @@ export class DigitalPetElement extends HTMLElement {
 
   private drawSittingShiro(ctx: CanvasRenderingContext2D, pose: Behavior, time: number): void {
     this.drawPlumeTail(ctx, { x: 61, y: 63 }, true, time);
-    ellipse(ctx, 55, 27, 96, 84, GOLDEN);
+    gradientEllipse(ctx, 55, 27, 96, 84, DEEP_GOLDEN, GOLDEN, LIGHT_GOLDEN);
     ellipse(ctx, 69, 32, 60, 64, colorWithAlpha(LIGHT_GOLDEN, 0.42));
     ellipse(ctx, 46, 21, 48, 33, GOLDEN);
     this.drawChestRuff(ctx, { x: 136, y: 79 });
@@ -1048,11 +1411,29 @@ export class DigitalPetElement extends HTMLElement {
   ): void {
     const width = compact ? 62 : 69;
     const height = compact ? 55 : 69;
-    ellipse(ctx, origin.x, origin.y, width, height, GOLDEN);
+    gradientEllipse(
+      ctx,
+      origin.x,
+      origin.y,
+      width,
+      height,
+      DEEP_GOLDEN,
+      GOLDEN,
+      HIGHLIGHT_GOLDEN,
+    );
     this.drawEar(ctx, origin.x + 7, origin.y + 20, false, compact);
     this.drawEar(ctx, origin.x + width - 9, origin.y + 20, true, compact);
-    ellipse(ctx, origin.x + 24, origin.y + 2, compact ? 43 : 48, compact ? 32 : 36, CREAM);
-    ellipse(ctx, origin.x + width - 10, origin.y + 16, 18, 14, "#171717");
+    gradientEllipse(
+      ctx,
+      origin.x + 24,
+      origin.y + 2,
+      compact ? 43 : 48,
+      compact ? 32 : 36,
+      "#c98236",
+      CREAM,
+      "#ffe2a1",
+    );
+    gradientEllipse(ctx, origin.x + width - 10, origin.y + 16, 18, 14, "#050505", "#171717", "#48413d");
     ellipse(ctx, origin.x + width - 7, origin.y + 23, 5, 3, "rgba(255,255,255,.35)");
 
     if (eyesClosed) {
@@ -1066,6 +1447,12 @@ export class DigitalPetElement extends HTMLElement {
     if (mouthOpen) {
       ellipse(ctx, origin.x + 42, origin.y - 3, 25, 19, "#1d1511");
       roundRect(ctx, origin.x + 49, origin.y - 14, 14, 25, 7, TONGUE);
+      strokePolyline(
+        ctx,
+        [{ x: origin.x + 56, y: origin.y - 11 }, { x: origin.x + 56, y: origin.y + 7 }],
+        colorWithAlpha("#9d3149", 0.65),
+        1,
+      );
     } else {
       strokePolyline(
         ctx,
@@ -1080,12 +1467,15 @@ export class DigitalPetElement extends HTMLElement {
     }
 
     this.drawEarFeathering(ctx, origin, width);
+    this.drawFaceDetails(ctx, origin, width, height, compact);
     roundRect(ctx, origin.x + 11, origin.y + 8, width - 12, 6, 3, "#c72928");
     ellipse(ctx, origin.x + width / 2 + 5, origin.y + 1, 9, 9, "#f4c934");
   }
 
   private get mouthOpen(): boolean {
-    return ["chasing", "running", "jump", "speak", "fetch"].includes(this.behavior);
+    return ["chasing", "running", "jump", "speak", "fetch", "ask-food", "feed", "treat"].includes(
+      this.behavior,
+    );
   }
 
   private legOffset(time: number): number {
@@ -1140,9 +1530,44 @@ export class DigitalPetElement extends HTMLElement {
     );
   }
 
-  private drawFeatheredLeg(ctx: CanvasRenderingContext2D, x: number, y: number): void {
-    roundRect(ctx, x, y, 25, 50, 11, GOLDEN);
-    ellipse(ctx, x - 3, y - 2, 32, 15, LIGHT_GOLDEN);
+  private drawFeatheredLeg(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    behind = false,
+  ): void {
+    const alpha = behind ? 0.72 : 1;
+    gradientRoundRect(
+      ctx,
+      x,
+      y,
+      25,
+      50,
+      11,
+      colorWithAlpha(DEEP_GOLDEN, alpha),
+      colorWithAlpha(GOLDEN, alpha),
+      colorWithAlpha(LIGHT_GOLDEN, alpha),
+    );
+    gradientEllipse(
+      ctx,
+      x - 3,
+      y - 2,
+      32,
+      15,
+      colorWithAlpha(DARK_GOLDEN, alpha),
+      colorWithAlpha(LIGHT_GOLDEN, alpha),
+      colorWithAlpha(HIGHLIGHT_GOLDEN, alpha),
+    );
+    for (let toe = 0; toe < 3; toe += 1) {
+      strokeArc(
+        ctx,
+        { x: x + 7 + toe * 6, y: y + 4 },
+        3,
+        0.15,
+        1.35,
+        colorWithAlpha(DARK_GOLDEN, 0.42 * alpha),
+      );
+    }
     for (let offset = 1; offset <= 21; offset += 4) {
       strokePolyline(
         ctx,
@@ -1197,8 +1622,38 @@ export class DigitalPetElement extends HTMLElement {
       y + 23,
     );
     ctx.closePath();
-    ctx.fillStyle = DARK_GOLDEN;
+    const earGradient = ctx.createLinearGradient(x, y - length, x, y + 27);
+    earGradient.addColorStop(0, DEEP_GOLDEN);
+    earGradient.addColorStop(0.55, DARK_GOLDEN);
+    earGradient.addColorStop(1, GOLDEN);
+    ctx.fillStyle = earGradient;
     ctx.fill();
+  }
+
+  private drawFaceDetails(
+    ctx: CanvasRenderingContext2D,
+    origin: Point,
+    width: number,
+    height: number,
+    compact: boolean,
+  ): void {
+    const browY = origin.y + height - (compact ? 15 : 17);
+    strokeArc(ctx, { x: origin.x + 34, y: browY }, 8, 0.15, 1.25, colorWithAlpha(DARK_GOLDEN, 0.48));
+    strokeArc(ctx, { x: origin.x + 55, y: browY - 1 }, 8, 0.15, 1.25, colorWithAlpha(DARK_GOLDEN, 0.48));
+
+    for (let index = 0; index < 3; index += 1) {
+      const y = origin.y + 10 + index * 4;
+      ellipse(ctx, origin.x + width - 23 - index * 2, y, 1.4, 1.4, colorWithAlpha(DARK_GOLDEN, 0.55));
+      strokePolyline(
+        ctx,
+        [
+          { x: origin.x + width - 21, y },
+          { x: origin.x + width + 7, y: y + (index - 1) * 4 },
+        ],
+        colorWithAlpha("#fff7dd", 0.42),
+        0.8,
+      );
+    }
   }
 
   private drawEarFeathering(ctx: CanvasRenderingContext2D, origin: Point, width: number): void {
@@ -1245,8 +1700,10 @@ export class DigitalPetElement extends HTMLElement {
   }
 
   private drawEye(ctx: CanvasRenderingContext2D, x: number, y: number): void {
-    ellipse(ctx, x, y, 8, 10, "#12100f");
-    ellipse(ctx, x + 1.7, y + 6, 2.5, 2.5, "#fff");
+    ellipse(ctx, x - 1, y - 1, 10, 12, colorWithAlpha(DARK_GOLDEN, 0.5));
+    gradientEllipse(ctx, x, y, 8, 10, "#070605", "#3b2415", "#8a5b2f");
+    ellipse(ctx, x + 1.5, y + 6.2, 2.7, 2.7, "#fff");
+    ellipse(ctx, x + 4.6, y + 2.2, 1.2, 1.2, "rgba(255,255,255,.72)");
   }
 
   private drawClosedEye(ctx: CanvasRenderingContext2D, x: number, y: number): void {
@@ -1317,6 +1774,9 @@ export function mountDigitalPet(options: DigitalPetOptions = {}): DigitalPetElem
   if (options.name) pet.setAttribute("name", options.name);
   if (options.controls === false) pet.setAttribute("controls", "false");
   if (options.cursorInteraction === false) pet.setAttribute("cursor-interaction", "false");
+  if (options.sound !== undefined) pet.setAttribute("sound", String(options.sound));
+  if (options.volume !== undefined) pet.setAttribute("volume", String(options.volume));
+  if (options.renderer) pet.setAttribute("renderer", options.renderer);
   if (options.size) pet.setAttribute("size", options.size);
   if (options.zIndex !== undefined) pet.setAttribute("z-index", String(options.zIndex));
   if (options.startCorner) pet.setAttribute("start-corner", options.startCorner);
@@ -1328,12 +1788,26 @@ function isDigitalPetSize(value: string): value is DigitalPetSize {
   return DIGITAL_PET_SIZES.includes(value as DigitalPetSize);
 }
 
+function isDigitalPetRenderer(value: string): value is DigitalPetRenderer {
+  return DIGITAL_PET_RENDERERS.includes(value as DigitalPetRenderer);
+}
+
 function randomBetween(minimum: number, maximum: number): number {
   return minimum + Math.random() * (maximum - minimum);
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
+}
+
+function damp(current: number, target: number, smoothing: number, deltaSeconds: number): number {
+  return target + (current - target) * Math.exp(-smoothing * deltaSeconds);
+}
+
+function easeInOutCubic(value: number): number {
+  return value < 0.5
+    ? 4 * value * value * value
+    : 1 - Math.pow(-2 * value + 2, 3) / 2;
 }
 
 function ellipse(
@@ -1350,6 +1824,26 @@ function ellipse(
   context.fill();
 }
 
+function gradientEllipse(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  shadow: string,
+  middle: string,
+  highlight: string,
+): void {
+  const gradient = context.createLinearGradient(x, y, x + width, y + height);
+  gradient.addColorStop(0, shadow);
+  gradient.addColorStop(0.48, middle);
+  gradient.addColorStop(1, highlight);
+  context.beginPath();
+  context.ellipse(x + width / 2, y + height / 2, width / 2, height / 2, 0, 0, Math.PI * 2);
+  context.fillStyle = gradient;
+  context.fill();
+}
+
 function roundRect(
   context: CanvasRenderingContext2D,
   x: number,
@@ -1362,6 +1856,27 @@ function roundRect(
   context.beginPath();
   context.roundRect(x, y, width, height, radius);
   context.fillStyle = color;
+  context.fill();
+}
+
+function gradientRoundRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+  shadow: string,
+  middle: string,
+  highlight: string,
+): void {
+  const gradient = context.createLinearGradient(x, y, x + width, y + height);
+  gradient.addColorStop(0, shadow);
+  gradient.addColorStop(0.5, middle);
+  gradient.addColorStop(1, highlight);
+  context.beginPath();
+  context.roundRect(x, y, width, height, radius);
+  context.fillStyle = gradient;
   context.fill();
 }
 

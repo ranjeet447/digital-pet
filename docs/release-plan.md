@@ -1,135 +1,118 @@
 # Digital Pet Release Plan
 
-## Product direction
+## Product Direction
 
-Digital Pet is one product delivered across multiple platforms. Every
-platform must preserve the same visible personality, commands, controls, ball
-behavior, sizing, and accessibility expectations defined in
+Digital Pet is one product for websites and desktop computers. The included pet
+is Shiro, inspired by Ranjeet's real golden retriever. The product name remains
+Digital Pet, and website owners can change the displayed pet name.
+
+All platforms follow
 [`platform-feature-contract.md`](platform-feature-contract.md).
 
-The default pet is named Shiro after Ranjeet's real golden retriever. The product
-itself is named Digital Pet. Website owners can change the displayed pet name,
-while Shiro's origin story remains part of the project.
+## Version 0.2.0
 
-## Version 0.1.0: macOS and web
+Version 0.2.0 is the first synchronized cross-platform release.
 
-The first public release contains:
+### Web
 
-- Native macOS always-on-top desktop pet
-- Framework-neutral JavaScript Web Component
 - npm-compatible `@ranjeet447/digital-pet` package
-- Standalone ES module for direct website or CDN usage
-- GitHub Pages product website and interactive demo
-- Four persistent display sizes
-- All 14 commands
-- Autonomous walking, running, pointer following, tricks, and naps
-- Persistent corner nap
-- Multiple balls and fetch behavior
-- Shiro-inspired golden retriever appearance
-- Public TypeScript API and declarations
+- Standalone browser ES module
+- Plain HTML and JavaScript support
+- React, Next.js, Vue, Nuxt, Angular, Svelte, SvelteKit, and Astro instructions
+- GitHub Pages product site and interactive demo
 
-### Distribution channels
+### Desktop
+
+- Shared Electron desktop shell
+- macOS Apple Silicon zip
+- macOS Intel zip
+- Windows x64 portable executable
+- Linux x64 AppImage
+- Transparent always-on-top overlay
+- Tray or menu-bar controls
+- Shared persistent settings
+
+### Shared Features
+
+- 2D illustrated and 3D WebGL views
+- Improved golden-retriever coat and flexible tail
+- All trained commands
+- Feed, treat, surprise, food requests, and hunger behavior
+- Optional bark sound and volume control
+- Four sizes
+- Balls and fetch
+- Autonomous movement, pointer response, tricks, and naps
+
+## Distribution
 
 1. **GitHub repository**
-   - Source code, documentation, issues, and roadmap
-   - Repository: `ranjeet447/digital-pet`
+   - Source, documentation, roadmap, issues, and workflows
+   - `https://github.com/ranjeet447/digital-pet`
 2. **GitHub Pages**
-   - Product landing page, live web demo, installation examples, and SEO metadata
-   - Target: `https://ranjeet447.github.io/digital-pet/`
-3. **GitHub Release**
-   - Tag: `v0.1.0`
-   - `Digital-Pet-macOS-v0.1.0.zip`
-   - `ranjeet447-digital-pet-0.1.0.tgz`
+   - Live demo, framework examples, SEO, and web downloads
+   - `https://ranjeet447.github.io/digital-pet/`
+3. **GitHub Release `v0.2.0`**
+   - `Digital-Pet-mac-v0.2.0-arm64.zip`
+   - `Digital-Pet-mac-v0.2.0-x64.zip`
+   - `Digital-Pet-win-v0.2.0-x64.exe`
+   - `Digital-Pet-linux-v0.2.0-x64.AppImage`
+   - `ranjeet447-digital-pet-0.2.0.tgz`
+   - `Digital-Pet-Web-v0.2.0.js`
 4. **npm**
    - Package: `@ranjeet447/digital-pet`
-   - Publish after npm ownership and the `NPM_TOKEN` GitHub secret are configured
+   - Publish after npm ownership and authentication are configured
 
-### Version 0.1.0 release checklist
+## v0.2.0 Checklist
 
-- [x] macOS debug and release builds pass
-- [x] macOS bundle is ad-hoc signed and launch-tested
-- [x] Web TypeScript build passes
-- [x] npm archive dry run passes
-- [x] Desktop and mobile website layouts are browser-tested
-- [x] Web console has no errors or warnings
-- [x] SEO title, description, canonical URL, Open Graph, Twitter, and JSON-LD exist
-- [x] Real Shiro photos are optimized for the website
-- [x] GitHub Pages deployment workflow exists
-- [x] Tag-driven GitHub Release workflow exists
-- [x] Pages site includes web, macOS, Windows, and Linux download options
-- [x] Pages site embeds the live interactive web demo
-- [ ] GitHub CLI authentication is valid
-- [ ] Initial source commit is pushed to `main`
-- [ ] GitHub Pages is enabled with GitHub Actions as its source
-- [ ] `v0.1.0` tag is pushed
+- [x] Shared web and desktop architecture implemented
+- [x] Web TypeScript check passes
+- [x] Web production bundle builds
+- [x] 2D and 3D switching works in the demo
+- [x] Framework instructions added
+- [x] Desktop packaging matrix added for macOS, Windows, and Linux
+- [x] GitHub Pages download links updated
+- [x] Release notes and feature contract updated
+- [x] macOS Apple Silicon and Intel packages build locally
+- [ ] GitHub Actions Windows package passes
+- [ ] GitHub Actions Linux package passes
+- [ ] GitHub Actions macOS Intel package passes
+- [ ] GitHub Actions macOS Apple Silicon package passes
+- [ ] GitHub Pages deployment passes
 - [ ] GitHub Release assets are verified
-- [ ] npm package name ownership is confirmed
 - [ ] npm package is published
 
-## Version 0.2.0: Windows and Linux
+## Release Automation
 
-The second release adds:
+- Pushes to `main` build and deploy GitHub Pages.
+- A `v*` tag builds desktop packages on native GitHub-hosted runners.
+- The same tag builds the npm archive.
+- GitHub Pages publishes immutable versioned browser scripts and a moving latest alias.
+- The release job combines all artifacts into one GitHub Release.
+- npm publication remains manual until a trusted token is configured.
 
-- Windows always-on-top desktop application
-- Linux always-on-top desktop application
-- System tray or equivalent menu controls
-- Start-at-login support where available
-- Persistent size and behavior settings
-- The same 14 commands and animations as macOS and web
-- Equivalent cursor interaction with explicit opt-in for cursor movement
-- Installers or portable archives for supported architectures
+## Later Releases
 
-Windows and Linux are not considered complete until they pass the parity
-checklist in `platform-feature-contract.md`.
+Future features should update the shared Web Component first so web and all
+desktop platforms receive them together:
 
-## Later synchronized releases
-
-After Windows and Linux are available, product features should ship across all
-supported platforms together whenever the platform permits them.
-
-Planned features include:
-
-- Optional bark, panting, sleep, collar, and ball sounds
-- Volume and mute controls
-- Rename Shiro and persist a custom pet name
+- More sounds and context-specific bark recordings
 - Additional coats, collars, and ball collections
-- More natural multi-stage animations
-- Feeding, mood, energy, and affection systems
-- Scheduled quiet hours and focus mode
-- Additional pointer and window interactions
-- Importable community animation and appearance packs
-- Automatic update support for desktop applications
+- Mood, energy, affection, and richer feeding systems
+- Focus mode and scheduled quiet hours
+- Signed and notarized macOS packages
+- Signed Windows installer
+- Automatic desktop updates
+- Additional CPU architectures
 
-## Versioning policy
+## Versioning
 
-- Patch releases fix defects without changing commands or public APIs.
-- Minor releases add backward-compatible behavior, platforms, or customization.
-- Major releases may change package APIs, storage formats, or plugin contracts.
-- Desktop and web packages use the same product version when released together.
+- Patch releases fix defects without breaking APIs.
+- Minor releases add backward-compatible behavior or platforms.
+- Major releases may change public APIs or saved settings.
+- Web and desktop packages share the same product version.
 
-## Release automation
+## Discovery
 
-- A push to `main` deploys the product website through GitHub Pages.
-- A `v*` tag builds the macOS application and web npm archive.
-- The release workflow creates a GitHub Release and attaches both artifacts.
-- npm publication remains manual until a trusted `NPM_TOKEN` secret is added.
-
-## SEO and discovery
-
-The public website targets searches around:
-
-- digital pet for desktop
-- digital pet for website
-- JavaScript website pet
-- golden retriever desktop pet
-- React, Vue, and Angular digital pet
-- macOS desktop companion
-
-Every public release should update:
-
-- Page title and description
-- Open Graph and Twitter preview
-- JSON-LD software metadata
-- README installation examples
-- GitHub release notes
-- Screenshots and real Shiro photography
+The website targets searches for digital pets for websites and desktops,
+JavaScript website pets, framework-specific pets, golden retriever companions,
+and macOS, Windows, and Linux desktop pets.

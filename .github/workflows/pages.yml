@@ -42,17 +42,7 @@ jobs:
         run: npm run build
 
       - name: Build Pages artifact
-        working-directory: web
-        run: |
-          mkdir -p ../.pages/downloads
-          cp demo/index.html ../.pages/index.html
-          cp -R demo/images ../.pages/images
-          cp -R dist ../.pages/dist
-          cp dist/index.js ../.pages/downloads/digital-pet.js
-          npm pack --pack-destination ../.pages/downloads
-          mv ../.pages/downloads/ranjeet447-digital-pet-*.tgz ../.pages/downloads/digital-pet-0.1.0.tgz
-          sed -i 's#\.\./dist/index\.js#./dist/index.js#g' ../.pages/index.html
-          touch ../.pages/.nojekyll
+        run: bash scripts/build-pages.sh .pages
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

@@ -3,5 +3,9 @@ dist/
 .DS_Store
 web/node_modules/
 web/*.tgz
+desktop/node_modules/
+desktop/app/dist/
+desktop/app/assets/
+desktop/release/
 .pages/
 release/

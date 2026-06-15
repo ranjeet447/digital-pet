@@ -9,12 +9,13 @@
     />
     <meta
       name="keywords"
-      content="digital pet, website pet, JavaScript pet, web component, golden retriever, desktop pet, macOS pet, React pet, Vue pet, Angular pet"
+      content="digital pet, website pet, JavaScript pet, web component, golden retriever, desktop pet, macOS pet, Windows pet, Linux pet, React pet, Next.js pet, Vue pet, Nuxt pet, Angular pet, Svelte pet, Astro pet"
     />
     <meta name="author" content="Ranjeet and Shiro" />
     <meta name="theme-color" content="#f7efe3" />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://ranjeet447.github.io/digital-pet/" />
+    <link rel="icon" type="image/png" href="favicon.png" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Digital Pet" />
@@ -50,7 +51,8 @@
         "name": "Digital Pet",
         "description": "An open-source animated and customizable pet for websites and desktop computers. The default pet is Shiro, a golden retriever.",
         "applicationCategory": "EntertainmentApplication",
-        "operatingSystem": "Web, macOS",
+        "softwareVersion": "0.2.0",
+        "operatingSystem": "Web, macOS, Windows, Linux",
         "url": "https://ranjeet447.github.io/digital-pet/",
         "downloadUrl": "https://github.com/ranjeet447/digital-pet/releases",
         "isAccessibleForFree": true,
@@ -513,9 +515,52 @@
       }
 
       .command-panel > p {
-        margin-bottom: 24px;
+        margin-bottom: 16px;
         color: var(--ink-soft);
         font-size: 14px;
+      }
+
+      .view-picker {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 22px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(246, 237, 224, 0.56);
+      }
+
+      .view-picker strong {
+        padding-left: 4px;
+        font-size: 13px;
+      }
+
+      .view-options {
+        display: flex;
+        gap: 6px;
+      }
+
+      .view-option {
+        min-width: 68px;
+        padding: 8px 12px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--ink-soft);
+        cursor: pointer;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .view-option:hover,
+      .view-option.active {
+        border-color: rgba(198, 108, 43, 0.34);
+        background: var(--white);
+        color: var(--gold-dark);
+        box-shadow: 0 5px 15px rgba(85, 47, 24, 0.08);
       }
 
       .commands {
@@ -693,6 +738,7 @@
 
       .code-tabs {
         display: flex;
+        flex-wrap: wrap;
         gap: 4px;
         padding: 13px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -1134,16 +1180,18 @@
       const pet = document.querySelector("digital-pet");
       const statusText = document.querySelector("[data-status]");
       const commandButtons = document.querySelectorAll("[data-command]");
+      const viewButtons = document.querySelectorAll("[data-view]");
       const codeBlock = document.querySelector("[data-code]");
       const codeTabs = document.querySelectorAll("[data-code-tab]");
 
       const codeExamples = {
         html: `<span class="code-accent">&lt;script</span> type="module"
-  src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet.js"<span class="code-accent">&gt;&lt;/script&gt;</span>
+  src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet-v0.2.0.js"<span class="code-accent">&gt;&lt;/script&gt;</span>
 
 <span class="code-accent">&lt;digital-pet</span>
   size="normal"
   controls="true"
+  renderer="3d"
 <span class="code-accent">&gt;&lt;/digital-pet&gt;</span>`,
         react: `<span class="code-accent">"use client";</span>
 
@@ -1156,6 +1204,38 @@ export function Shiro() {
 
   return &lt;digital-pet controls="true" /&gt;;
 }`,
+        vue: `&lt;script setup&gt;
+import { onMounted } from "vue";
+
+onMounted(() =&gt; import("@ranjeet447/digital-pet"));
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;digital-pet renderer="3d" controls="true" /&gt;
+&lt;/template&gt;`,
+        angular: `// main.ts
+import "@ranjeet447/digital-pet";
+
+// app.component.ts
+@Component({
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \`&lt;digital-pet renderer="3d" /&gt;\`,
+})
+export class AppComponent {}`,
+        svelte: `&lt;script&gt;
+  import { onMount } from "svelte";
+  onMount(() =&gt; import("@ranjeet447/digital-pet"));
+&lt;/script&gt;
+
+&lt;digital-pet renderer="3d" controls="true" /&gt;`,
+        astro: `---
+// Load the browser module from a tiny client script.
+---
+
+&lt;digital-pet renderer="3d" controls="true"&gt;&lt;/digital-pet&gt;
+&lt;script&gt;
+  import "@ranjeet447/digital-pet";
+&lt;/script&gt;`,
         api: `import { mountDigitalPet }
   from <span class="code-accent">"@ranjeet447/digital-pet"</span>;
 
@@ -1163,6 +1243,7 @@ const shiro = mountDigitalPet({
   name: "Shiro",
   size: "normal",
   controls: true,
+  renderer: "3d",
 });
 
 shiro.command(<span class="code-accent">"fetch"</span>);
@@ -1178,6 +1259,21 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
           statusText.textContent = `Shiro is doing: ${button.textContent}`;
           window.setTimeout(() => button.classList.remove("active"), 1700);
         });
+      });
+
+      viewButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          pet.setRenderer(button.dataset.view);
+        });
+      });
+
+      pet.addEventListener("digital-pet-renderer-change", (event) => {
+        viewButtons.forEach((button) => {
+          const selected = button.dataset.view === event.detail.renderer;
+          button.classList.toggle("active", selected);
+          button.setAttribute("aria-pressed", String(selected));
+        });
+        statusText.textContent = `Shiro is using the ${event.detail.renderer.toUpperCase()} view`;
       });
 
       codeTabs.forEach((tab) => {
@@ -1229,7 +1325,7 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
     <main id="top">
       <section class="hero shell">
         <div class="hero-copy reveal">
-          <span class="eyebrow">Open source · Web and macOS</span>
+          <span class="eyebrow">Open source · Web, macOS, Windows, and Linux</span>
           <h1>A playful companion for <em>every screen.</em></h1>
           <p>
             Add a lively companion to your screen. The included pet is Shiro, a
@@ -1296,7 +1392,7 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
           <div class="playground reveal">
             <article class="playground-copy">
               <div>
-                <h3>He already knows fourteen commands.</h3>
+                <h3>Fourteen trained commands, plus care and surprises.</h3>
                 <p>
                   Shiro can respond directly to visitors, react to the pointer,
                   or choose his own behavior when everyone is busy.
@@ -1311,6 +1407,17 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
             <div class="command-panel">
               <h3>All tricks and commands</h3>
               <p>Choose one and watch the digital Shiro on this page.</p>
+              <div class="view-picker">
+                <strong>Choose a view</strong>
+                <div class="view-options" role="group" aria-label="Pet view">
+                  <button class="view-option" type="button" data-view="2d" aria-pressed="false">
+                    2D
+                  </button>
+                  <button class="view-option active" type="button" data-view="3d" aria-pressed="true">
+                    3D
+                  </button>
+                </div>
+              </div>
               <div class="commands">
                 <button class="command" type="button" data-command="sit">Sit</button>
                 <button class="command" type="button" data-command="walk">Walk</button>
@@ -1326,6 +1433,9 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
                 <button class="command" type="button" data-command="speak">Speak</button>
                 <button class="command" type="button" data-command="quiet">Quiet</button>
                 <button class="command" type="button" data-command="fetch">Fetch a Ball</button>
+                <button class="command" type="button" data-command="feed">Feed</button>
+                <button class="command" type="button" data-command="treat">Give a Treat</button>
+                <button class="command" type="button" data-command="surprise">Surprise Trick</button>
               </div>
             </div>
           </div>
@@ -1389,8 +1499,8 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
             <span class="feature-number">06</span>
             <h3>Cross-platform</h3>
             <p>
-              Use the Web Component today or download the native macOS pet.
-              Windows and Linux versions follow the same feature contract.
+              Use the Web Component in any framework or download the shared
+              desktop pet for macOS, Windows, and Linux.
             </p>
           </article>
         </div>
@@ -1451,8 +1561,10 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
               <span>HTML</span>
               <span>React</span>
               <span>Vue</span>
+              <span>Nuxt</span>
               <span>Angular</span>
               <span>Svelte</span>
+              <span>SvelteKit</span>
               <span>Next.js</span>
               <span>Astro</span>
             </div>
@@ -1464,18 +1576,31 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
                 HTML
               </button>
               <button class="code-tab" type="button" data-code-tab="react" role="tab">
-                React
+                React / Next
+              </button>
+              <button class="code-tab" type="button" data-code-tab="vue" role="tab">
+                Vue / Nuxt
+              </button>
+              <button class="code-tab" type="button" data-code-tab="angular" role="tab">
+                Angular
+              </button>
+              <button class="code-tab" type="button" data-code-tab="svelte" role="tab">
+                Svelte
+              </button>
+              <button class="code-tab" type="button" data-code-tab="astro" role="tab">
+                Astro
               </button>
               <button class="code-tab" type="button" data-code-tab="api" role="tab">
                 JavaScript API
               </button>
             </div>
             <pre><code data-code><span class="code-accent">&lt;script</span> type="module"
-  src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet.js"<span class="code-accent">&gt;&lt;/script&gt;</span>
+  src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet-v0.2.0.js"<span class="code-accent">&gt;&lt;/script&gt;</span>
 
 <span class="code-accent">&lt;digital-pet</span>
   size="normal"
   controls="true"
+  renderer="3d"
 <span class="code-accent">&gt;&lt;/digital-pet&gt;</span></code></pre>
           </div>
         </div>
@@ -1505,17 +1630,17 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
               </p>
               <a
                 class="platform-download"
-                href="./downloads/digital-pet-0.1.0.tgz"
+                href="./downloads/digital-pet-0.2.0.tgz"
               >
                 Download web package
               </a>
               <a
                 class="platform-download"
-                href="./downloads/digital-pet.js"
+                href="./downloads/digital-pet-v0.2.0.js"
                 download
                 style="margin-top: 9px"
               >
-                Download browser script
+                Download browser script v0.2.0
               </a>
             </article>
             <article class="platform-card available reveal">
@@ -1523,44 +1648,44 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
               <span class="platform-label">Available</span>
               <h3>macOS app</h3>
               <p>
-                A native always-on-top desktop pet with menu controls, multiple
-                sizes, tricks, and optional cursor mischief.
+                Shared always-on-top desktop app with 2D and 3D views, sounds,
+                care actions, all tricks, four sizes, and tray controls.
               </p>
               <a
                 class="platform-download"
-                href="https://github.com/ranjeet447/digital-pet/releases/download/v0.1.0/Digital-Pet-macOS-v0.1.0.zip"
+                href="https://github.com/ranjeet447/digital-pet/releases/tag/v0.2.0"
               >
                 Download for macOS
               </a>
             </article>
-            <article class="platform-card reveal">
+            <article class="platform-card available reveal">
               <span class="platform-mark" aria-hidden="true">W</span>
-              <span class="platform-label">Version 0.2.0</span>
+              <span class="platform-label">Available</span>
               <h3>Windows app</h3>
               <p>
-                Planned with the same always-on-top behavior, commands, sizes,
-                balls, and system tray controls.
+                Portable Windows x64 app with the same renderer, commands,
+                sounds, care actions, sizes, and system tray controls.
               </p>
               <a
-                class="platform-download upcoming"
-                href="https://github.com/ranjeet447/digital-pet/releases"
+                class="platform-download"
+                href="https://github.com/ranjeet447/digital-pet/releases/tag/v0.2.0"
               >
-                Watch Windows releases
+                Download for Windows
               </a>
             </article>
-            <article class="platform-card reveal">
+            <article class="platform-card available reveal">
               <span class="platform-mark" aria-hidden="true">L</span>
-              <span class="platform-label">Version 0.2.0</span>
+              <span class="platform-label">Available</span>
               <h3>Linux app</h3>
               <p>
-                Planned with feature parity across supported Linux desktops and
-                portable distribution options.
+                Portable Linux x64 AppImage with feature parity and tray controls
+                on supported desktop environments.
               </p>
               <a
-                class="platform-download upcoming"
-                href="https://github.com/ranjeet447/digital-pet/releases"
+                class="platform-download"
+                href="https://github.com/ranjeet447/digital-pet/releases/tag/v0.2.0"
               >
-                Watch Linux releases
+                Download for Linux
               </a>
             </article>
           </div>
@@ -1627,9 +1752,9 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
         <div class="final-cta reveal">
           <h2>Bring Digital Pet to your screen.</h2>
           <p>
-            Try the package, download the macOS app, follow development on
-            GitHub, and help shape the Windows, Linux, sound, and personalization
-            releases.
+            Try the package or download the desktop app for macOS, Windows, or
+            Linux. Follow development on GitHub and help shape future
+            personalization releases.
           </p>
           <div class="cta-row" style="justify-content: center">
             <a
@@ -1663,6 +1788,7 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
       size="small"
       controls="true"
       cursor-interaction="true"
+      renderer="3d"
       remember-size="false"
     ></digital-pet>
   </body>

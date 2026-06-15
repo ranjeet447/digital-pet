@@ -1,82 +1,115 @@
 # Digital Pet
 
-Digital Pet is an open-source companion for websites and desktop computers. The
-default pet is Shiro, based on the real golden retriever Shiro. He stays above
-normal app windows, walks and runs around the screen, follows the cursor,
-performs his trained commands, plays with balls, and takes naps. Web integrations
-can change the pet's name with the `name` attribute.
+Digital Pet is an open-source companion for websites, macOS, Windows, and Linux.
+The default pet is Shiro, based on the real golden retriever
+[Shiro](https://www.shirofinds.com/), and users can rename him.
 
-## Run from source
+Shiro stays above normal app windows, walks and runs around the screen, follows
+the pointer, performs tricks, plays with balls, asks for food, accepts treats,
+barks when sounds are enabled, and takes naps in a corner.
 
-Requirements: macOS 13 or newer and the Xcode Command Line Tools.
+## Version 0.2.0
 
-```bash
-swift run ShiroPet
-```
+- Shared desktop app for macOS, Windows, and Linux
+- Framework-neutral web package and standalone browser module
+- Switchable 2D illustrated and 3D views
+- Natural golden-retriever coat and flexible tail animation
+- All trained commands plus feed, treat, and surprise actions
+- Optional sound and volume controls
+- Four persistent sizes
+- Tray controls and always-on-top desktop behavior
+- GitHub Pages demo and framework installation examples
 
-Use the paw icon in the menu bar to bring Shiro to the cursor, send him for a
-persistent nap in the nearest corner, choose a command, change his size, pause
-him, or quit.
-
-You can also:
-
-- Click Shiro to make him perform a trick.
-- Drag Shiro to another spot on the screen.
-- Choose **Take a Nap in Corner** to keep Shiro asleep out of the way while you
-  work. He stays there until clicked or given another command.
-- Choose **All Tricks & Commands** to ask for sit, walk, run, jump, down, sleep,
-  roll over, handshake, hi-five, salute, namaste, speak, quiet, or fetch.
-- Choose **Size** to switch between 75%, 100%, 125%, and 150%. The setting is
-  remembered the next time Shiro starts.
-- Enable **Cursor Mischief** from the menu to let him occasionally nudge the
-  pointer when it is nearby. macOS may request Accessibility permission.
-
-## Build a macOS app
+## Install on a Website
 
 ```bash
-chmod +x scripts/package-app.sh
-./scripts/package-app.sh
-open "dist/Digital Pet.app"
+npm install @ranjeet447/digital-pet
 ```
 
-The generated app is ad-hoc signed for local use. A public release should use an
-Apple Developer ID certificate, hardened runtime, and notarization.
-
-## Current MVP
-
-- Transparent, borderless, always-on-top native window
-- Autonomous idle, walking, running, chasing, and sleeping states
-- Shiro-inspired honey-gold coat, broad muzzle, feathered ears, chest, legs, and tail
-- All 14 trained commands available individually from the menu
-- Animated ball collection and fetch with several ball colors
-- Persistent Small, Normal, Large, and Extra Large display sizes
-- Cursor awareness and optional cursor mischief
-- Menu-bar controls
-- Multi-monitor-aware positioning
-
-The dog is currently drawn in code. A future art pass can replace `PetView` with
-sprite sheets based on photos or illustrations of the real Shiro without changing
-the window or behavior engine.
-
-## Web version
-
-The reusable website package lives in [`web/`](web/). It is a dependency-free
-Canvas Web Component that can be installed from npm or loaded as a standalone
-ES module on any website.
+```js
+import "@ranjeet447/digital-pet";
+```
 
 ```html
-<script type="module" src="/digital-pet.js"></script>
-<digital-pet name="Shiro"></digital-pet>
+<digital-pet
+  name="Shiro"
+  renderer="3d"
+  size="normal"
+  controls="true"
+></digital-pet>
 ```
 
-See [`web/README.md`](web/README.md) for commands, attributes, JavaScript APIs,
-framework examples, and publishing steps.
+Plain HTML, React, Next.js, Vue, Nuxt, Angular, Svelte, SvelteKit, and Astro
+instructions are in [`web/README.md`](web/README.md).
 
-## Cross-platform parity
+## Desktop Downloads
 
-Windows and Linux desktop versions are planned. All platforms follow the same
-feature requirements in
-[`docs/platform-feature-contract.md`](docs/platform-feature-contract.md).
+The `v0.2.0` GitHub Release contains:
 
-The public release roadmap, distribution channels, and version checklist are in
-[`docs/release-plan.md`](docs/release-plan.md).
+- macOS Apple Silicon zip
+- macOS Intel zip
+- Windows x64 portable executable
+- Linux x64 AppImage
+- npm-compatible web archive
+
+Desktop platforms use the same Web Component and animation engine, so commands,
+2D/3D views, care actions, sounds, sizes, and future behavior stay synchronized.
+
+## Run the Desktop App from Source
+
+Requirements: Node.js 22 or newer.
+
+```bash
+cd desktop
+npm install
+npm start
+```
+
+Build the package for the current platform:
+
+```bash
+npm run dist
+```
+
+Platform-specific commands:
+
+```bash
+npm run dist:mac
+npm run dist:win
+npm run dist:linux
+```
+
+Windows and Linux packages should be built on their matching operating systems.
+The release workflow does this automatically with native GitHub-hosted runners.
+
+## Desktop Controls
+
+- Click Shiro for a random trick.
+- Drag Shiro to reposition him.
+- Use the tray or menu-bar paw icon for every command.
+- Choose **Take a Nap in Corner** while working.
+- Switch between **2D Illustrated** and **3D Model**.
+- Change size from 75% to 150%.
+- Enable or disable sounds.
+- Feed Shiro, give him a treat, or request a surprise trick.
+- Hide Shiro and show him again from the tray.
+
+The desktop overlay passes pointer input through to other applications except
+when the pointer is over Shiro or his controls.
+
+## Legacy Native macOS Prototype
+
+The original Swift/AppKit prototype remains under `Sources/ShiroPet` for
+reference. Version 0.2.0 desktop releases use the shared cross-platform shell so
+macOS, Windows, Linux, and web features remain identical.
+
+## Project Documents
+
+- [`docs/platform-feature-contract.md`](docs/platform-feature-contract.md)
+- [`docs/release-plan.md`](docs/release-plan.md)
+- [`docs/release-notes-v0.2.0.md`](docs/release-notes-v0.2.0.md)
+
+## License
+
+MIT. The included bark recording is documented in
+[`web/assets/README.md`](web/assets/README.md).

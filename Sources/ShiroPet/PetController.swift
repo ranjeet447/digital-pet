@@ -273,7 +273,7 @@ final class PetController {
     }
 
     private func startTimer() {
-        let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             self?.tick()
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -285,6 +285,7 @@ final class PetController {
         let deltaTime = min(now - lastTick, 0.1)
         lastTick = now
         petView.animationTime = now
+        petView.advance(deltaTime: deltaTime)
 
         guard !isPaused else {
             petView.needsDisplay = true

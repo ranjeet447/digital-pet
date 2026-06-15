@@ -1,6 +1,6 @@
 {
   "name": "@ranjeet447/digital-pet",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A customizable digital pet web component. The default pet is Shiro, a playful golden retriever.",
   "homepage": "https://ranjeet447.github.io/digital-pet/",
   "repository": {
@@ -24,11 +24,12 @@
   },
   "files": [
     "dist",
+    "assets",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json --emitDeclarationOnly && esbuild src/index.ts --bundle --format=esm --target=es2020 --outfile=dist/index.js --sourcemap",
     "check": "tsc -p tsconfig.json --noEmit",
     "prepublishOnly": "npm run build"
   },
@@ -36,13 +37,19 @@
     "digital-pet",
     "web-component",
     "golden-retriever",
-    "canvas",
+    "webgl",
+    "threejs",
     "website-widget",
     "shiro"
   ],
   "license": "MIT",
   "sideEffects": true,
   "devDependencies": {
+    "@types/three": "^0.184.1",
+    "esbuild": "^0.28.1",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "three": "^0.184.0"
   }
 }

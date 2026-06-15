@@ -9,24 +9,63 @@ permissions:
   contents: write
 
 jobs:
-  macos:
-    runs-on: macos-15
+  desktop:
+    name: Desktop - ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Apple Silicon
+            runner: macos-15
+            command: npm run dist:mac
+            artifact: macos
+            path: desktop/release/*.zip
+          - name: Windows x64
+            runner: windows-latest
+            command: npm run dist:win -- --x64
+            artifact: windows-x64
+            path: desktop/release/*.exe
+          - name: Linux x64
+            runner: ubuntu-latest
+            command: npm run dist:linux -- --x64
+            artifact: linux-x64
+            path: desktop/release/*.AppImage
+
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build macOS application
-        run: ./scripts/package-app.sh
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            desktop/package-lock.json
 
-      - name: Package macOS application
-        run: ditto -c -k --sequesterRsrc --keepParent "dist/Digital Pet.app" "Digital-Pet-macOS-${GITHUB_REF_NAME}.zip"
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
 
-      - name: Upload macOS artifact
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build desktop package
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: ${{ matrix.command }}
+
+      - name: Upload desktop artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos
-          path: Digital-Pet-macOS-*.zip
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.path }}
+          if-no-files-found: error
 
   web:
     runs-on: ubuntu-latest
@@ -40,6 +79,8 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: web/package-lock.json
 
       - name: Install web build dependencies
         working-directory: web
@@ -51,17 +92,24 @@ jobs:
 
       - name: Pack web package
         working-directory: web
-        run: npm pack
+        shell: bash
+        run: |
+          npm pack
+          cp dist/index.js "Digital-Pet-Web-${GITHUB_REF_NAME}.js"
+          sed -i '/sourceMappingURL=index.js.map/d' "Digital-Pet-Web-${GITHUB_REF_NAME}.js"
 
       - name: Upload web artifact
         uses: actions/upload-artifact@v4
         with:
           name: web
-          path: web/ranjeet447-digital-pet-*.tgz
+          path: |
+            web/ranjeet447-digital-pet-*.tgz
+            web/Digital-Pet-Web-*.js
+          if-no-files-found: error
 
   release:
     needs:
-      - macos
+      - desktop
       - web
     runs-on: ubuntu-latest
 
