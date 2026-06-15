@@ -709,6 +709,66 @@
         max-width: 500px;
         color: var(--ink-soft);
         line-height: 1.75;
+        margin-bottom: 20px;
+      }
+
+      .install-terminal {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        max-width: 500px;
+        margin-block: 20px;
+        padding: 12px 16px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(246, 237, 224, 0.45);
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 13.5px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .terminal-prefix {
+        color: var(--gold);
+        font-weight: 700;
+        user-select: none;
+      }
+
+      .terminal-code {
+        color: var(--ink);
+        flex-grow: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .terminal-copy-btn {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--white);
+        color: var(--ink-soft);
+        cursor: pointer;
+        transition: all 120ms ease;
+      }
+
+      .terminal-copy-btn:hover {
+        background: var(--cream);
+        color: var(--gold-dark);
+        border-color: rgba(198, 108, 43, 0.4);
+      }
+
+      .terminal-copy-btn.copied {
+        background: var(--sage-light);
+        color: var(--sage);
+        border-color: rgba(89, 111, 99, 0.4);
+      }
+
+      .code-comment {
+        color: #aa9d92;
       }
 
       .frameworks {
@@ -1182,18 +1242,20 @@
       const commandButtons = document.querySelectorAll("[data-command]");
       const viewButtons = document.querySelectorAll("[data-view]");
       const codeBlock = document.querySelector("[data-code]");
-      const codeTabs = document.querySelectorAll("[data-code-tab]");
-
-      const codeExamples = {
-        html: `<span class="code-accent">&lt;script</span> type="module"
+      const codeTabs = document.querySelectorAll("[data-code-tab]");      const codeExamples = {
+        html: `<span class="code-comment">&lt;!-- 1. Include browser script: --&gt;</span>
+<span class="code-accent">&lt;script</span> type="module"
   src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet-v0.2.0.js"<span class="code-accent">&gt;&lt;/script&gt;</span>
 
+<span class="code-comment">&lt;!-- 2. Use the Web Component: --&gt;</span>
 <span class="code-accent">&lt;digital-pet</span>
   size="normal"
   controls="true"
   renderer="3d"
 <span class="code-accent">&gt;&lt;/digital-pet&gt;</span>`,
-        react: `<span class="code-accent">"use client";</span>
+        react: `<span class="code-comment">// 1. Run: npm install @ranjeet447/digital-pet</span>
+<span class="code-comment">// 2. Implement:</span>
+<span class="code-accent">"use client";</span>
 
 import { useEffect } from "react";
 
@@ -1204,7 +1266,9 @@ export function Shiro() {
 
   return &lt;digital-pet controls="true" /&gt;;
 }`,
-        vue: `&lt;script setup&gt;
+        vue: `<span class="code-comment">&lt;!-- 1. Run: npm install @ranjeet447/digital-pet --&gt;</span>
+<span class="code-comment">&lt;!-- 2. Implement: --&gt;</span>
+&lt;script setup&gt;
 import { onMounted } from "vue";
 
 onMounted(() =&gt; import("@ranjeet447/digital-pet"));
@@ -1213,7 +1277,9 @@ onMounted(() =&gt; import("@ranjeet447/digital-pet"));
 &lt;template&gt;
   &lt;digital-pet renderer="3d" controls="true" /&gt;
 &lt;/template&gt;`,
-        angular: `// main.ts
+        angular: `<span class="code-comment">// 1. Run: npm install @ranjeet447/digital-pet</span>
+<span class="code-comment">// 2. Implement:</span>
+// main.ts
 import "@ranjeet447/digital-pet";
 
 // app.component.ts
@@ -1222,13 +1288,17 @@ import "@ranjeet447/digital-pet";
   template: \`&lt;digital-pet renderer="3d" /&gt;\`,
 })
 export class AppComponent {}`,
-        svelte: `&lt;script&gt;
+        svelte: `<span class="code-comment">&lt;!-- 1. Run: npm install @ranjeet447/digital-pet --&gt;</span>
+<span class="code-comment">&lt;!-- 2. Implement: --&gt;</span>
+&lt;script&gt;
   import { onMount } from "svelte";
   onMount(() =&gt; import("@ranjeet447/digital-pet"));
 &lt;/script&gt;
 
 &lt;digital-pet renderer="3d" controls="true" /&gt;`,
-        astro: `---
+        astro: `<span class="code-comment">&lt;!-- 1. Run: npm install @ranjeet447/digital-pet --&gt;</span>
+<span class="code-comment">&lt;!-- 2. Implement: --&gt;</span>
+---
 // Load the browser module from a tiny client script.
 ---
 
@@ -1236,7 +1306,9 @@ export class AppComponent {}`,
 &lt;script&gt;
   import "@ranjeet447/digital-pet";
 &lt;/script&gt;`,
-        api: `import { mountDigitalPet }
+        api: `<span class="code-comment">// 1. Run: npm install @ranjeet447/digital-pet</span>
+<span class="code-comment">// 2. Implement:</span>
+import { mountDigitalPet }
   from <span class="code-accent">"@ranjeet447/digital-pet"</span>;
 
 const shiro = mountDigitalPet({
@@ -1288,6 +1360,18 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
         const label = event.detail.command.replace("-", " ");
         statusText.textContent = `Shiro is doing: ${label}`;
       });
+
+      window.copyInstallCommand = function(btn) {
+        const text = "npm install @ranjeet447/digital-pet";
+        navigator.clipboard.writeText(text).then(() => {
+          btn.classList.add("copied");
+          btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
+          window.setTimeout(() => {
+            btn.classList.remove("copied");
+            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
+          }, 2000);
+        });
+      };
 
       const header = document.querySelector(".site-header");
       const updateHeader = () => header.classList.toggle("scrolled", window.scrollY > 10);
@@ -1557,6 +1641,13 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
               HTML and stays easy to wrap in React, Vue, Angular, Svelte, Astro,
               or any framework that supports custom elements.
             </p>
+            <div class="install-terminal">
+              <span class="terminal-prefix">$</span>
+              <code class="terminal-code">npm install @ranjeet447/digital-pet</code>
+              <button class="terminal-copy-btn" onclick="copyInstallCommand(this)" aria-label="Copy install command">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+              </button>
+            </div>
             <div class="frameworks" aria-label="Supported frameworks">
               <span>HTML</span>
               <span>React</span>
