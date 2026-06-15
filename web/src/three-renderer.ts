@@ -256,11 +256,7 @@ export class ThreePetRenderer {
         (circular ? Math.cos(phase) : Math.sin(phase * 0.43)) * verticalAmplitude * taper;
       joint.rotation.x = Math.sin(phase * 0.31) * (excited ? 0.1 : 0.035);
     });
-    this.furPatches.forEach(({ group, phase, amount, material }) => {
-      const movement = gaitSpeed > 0 ? gait * amount : Math.sin(frame.time * 2.2 + phase) * amount * 0.28;
-      group.rotation.z = movement * 0.35;
-      group.rotation.x = Math.cos(frame.time * 1.7 + phase) * amount * 0.08;
-
+    this.furPatches.forEach(({ material, phase }) => {
       if (material.userData.shader) {
         material.userData.shader.uniforms.uTime.value = frame.time + phase * 0.2;
         material.userData.shader.uniforms.uGait.value = gaitSpeed > 0 ? Math.abs(gait) : 0;
@@ -365,15 +361,15 @@ export class ThreePetRenderer {
       metalness: 0,
     });
 
-    // Thin shells soften the silhouette without hiding the retriever anatomy.
-    for (let i = 1; i <= 6; i++) {
-      const progress = i / 6;
+    // A few low-opacity shells soften the silhouette without creating cloudy patches.
+    for (let i = 1; i <= 3; i++) {
+      const progress = i / 3;
       const shellScale = new THREE.Vector3(
-        1.46 * (1.0 + progress * 0.045),
-        0.72 * (1.0 + progress * 0.055),
-        0.76 * (1.0 + progress * 0.055),
+        1.46 * (1.0 + progress * 0.025),
+        0.72 * (1.0 + progress * 0.032),
+        0.76 * (1.0 + progress * 0.032),
       );
-      const shellOpacity = 0.22 * (1.0 - progress * 0.72);
+      const shellOpacity = 0.1 * (1.0 - progress * 0.68);
       this.addCoatShell(
         this.body,
         new THREE.SphereGeometry(0.92, 36, 24),
@@ -384,14 +380,14 @@ export class ThreePetRenderer {
       );
     }
 
-    for (let i = 1; i <= 6; i++) {
-      const progress = i / 6;
+    for (let i = 1; i <= 2; i++) {
+      const progress = i / 2;
       const shellScale = new THREE.Vector3(
-        0.72 * (1.0 + progress * 0.055),
-        1.06 * (1.0 + progress * 0.06),
-        0.9 * (1.0 + progress * 0.06),
+        0.72 * (1.0 + progress * 0.03),
+        1.06 * (1.0 + progress * 0.035),
+        0.9 * (1.0 + progress * 0.035),
       );
-      const shellOpacity = 0.2 * (1.0 - progress * 0.72);
+      const shellOpacity = 0.09 * (1.0 - progress * 0.65);
       this.addCoatShell(
         this.body,
         new THREE.SphereGeometry(0.62, 32, 20),
@@ -402,14 +398,14 @@ export class ThreePetRenderer {
       );
     }
 
-    for (let i = 1; i <= 5; i++) {
-      const progress = i / 5;
+    for (let i = 1; i <= 2; i++) {
+      const progress = i / 2;
       const shellScale = new THREE.Vector3(
-        0.88 * (1.0 + progress * 0.045),
-        0.96 * (1.0 + progress * 0.05),
-        1.04 * (1.0 + progress * 0.05),
+        0.88 * (1.0 + progress * 0.022),
+        0.96 * (1.0 + progress * 0.026),
+        1.04 * (1.0 + progress * 0.026),
       );
-      const shellOpacity = 0.2 * (1.0 - progress * 0.72);
+      const shellOpacity = 0.08 * (1.0 - progress * 0.65);
       this.addCoatShell(
         this.head,
         new THREE.SphereGeometry(0.58, 36, 24),
@@ -420,24 +416,29 @@ export class ThreePetRenderer {
       );
     }
 
-    // Reusable vector objects to eliminate GC pressure during load-time generation
     const rootObj = new THREE.Vector3();
     const outwardObj = new THREE.Vector3();
 
-    // 1. Body Fur - extremely dense surface-anchored strands with random jitter (19,200 hairs)
-    const rows = 120;
-    const cols = 160;
+    // One continuous body coat avoids visible boundaries between fur regions.
+    const rows = 64;
+    const cols = 88;
     for (let row = 0; row < rows; row += 1) {
       const xProgress = row / (rows - 1);
-      const jitterX = (Math.random() - 0.5) * (2.36 / (rows - 1));
+      const jitterX = Math.sin(row * 17.31) * (1.1 / rows);
       const x = -1.18 + xProgress * 2.36 + jitterX;
       const normX = x / 1.46;
       const rCross = Math.sqrt(Math.max(0, 0.92 * 0.92 - normX * normX));
       for (let column = 0; column < cols; column += 1) {
-        const jitterAngle = (Math.random() - 0.5) * (Math.PI * 2 / cols);
+        const strandIndex = row * cols + column;
+        const jitterAngle = Math.sin(strandIndex * 9.73) * (Math.PI / cols);
         const angle = (column / cols) * Math.PI * 2 + jitterAngle;
         const side = Math.sin(angle);
         const vertical = Math.cos(angle);
+        const underside = THREE.MathUtils.smoothstep(-vertical, 0.15, 0.82);
+        const chest = THREE.MathUtils.smoothstep(x, 0.2, 1.05) *
+          THREE.MathUtils.smoothstep(-vertical, -0.1, 0.75);
+        const coatLength = 0.026 + underside * 0.018 + chest * 0.018 +
+          ((strandIndex % 5) * 0.002);
 
         rootObj.set(
           x,
@@ -454,21 +455,22 @@ export class ThreePetRenderer {
           this.body,
           rootObj,
           outwardObj,
-          0.045 + ((row + column) % 4) * 0.008,
-          column % 7 === 0 ? creamFur : furMaterial,
-          row * 0.7 + column,
-          0.006,
+          coatLength,
+          chest > 0.7 && vertical < 0.2 ? creamFur : furMaterial,
+          strandIndex * 0.17,
+          0.003,
         );
       }
     }
 
-    // 2. Head Fur - short, velvet head hairs with random jitter (2,304 hairs)
-    const lats = 36;
-    const longs = 64;
+    // Short, even facial coat keeps the eyes and muzzle readable.
+    const lats = 24;
+    const longs = 40;
     for (let latitude = 0; latitude < lats; latitude += 1) {
       for (let longitude = 0; longitude < longs; longitude += 1) {
-        const jitterLat = (Math.random() - 0.5) * (Math.PI / lats);
-        const jitterLong = (Math.random() - 0.5) * (Math.PI * 2 / longs);
+        const strandIndex = latitude * longs + longitude;
+        const jitterLat = Math.sin(strandIndex * 7.13) * (Math.PI * 0.25 / lats);
+        const jitterLong = Math.cos(strandIndex * 5.77) * (Math.PI * 0.5 / longs);
         const phi = ((latitude + 0.5) / lats) * Math.PI + jitterLat;
         const theta = (longitude / longs) * Math.PI * 2 + jitterLong;
 
@@ -487,18 +489,17 @@ export class ThreePetRenderer {
           this.head,
           rootObj,
           outwardObj,
-          0.012 + Math.random() * 0.008,
-          longitude % 6 === 0 ? creamFur : furMaterial,
-          latitude * longs + longitude,
-          0.004,
+          0.014 + (strandIndex % 4) * 0.002,
+          furMaterial,
+          strandIndex * 0.13,
+          0.002,
         );
       }
     }
 
-    // 3. Muzzle (Face) Fur - extremely short, dense velvet cream hairs (1,000 hairs)
-    for (let index = 0; index < 1000; index += 1) {
-      const phi = Math.acos((Math.random() * 2) - 1);
-      const theta = Math.random() * Math.PI * 2;
+    for (let index = 0; index < 360; index += 1) {
+      const phi = Math.acos(1 - 2 * ((index + 0.5) / 360));
+      const theta = index * Math.PI * (3 - Math.sqrt(5));
       const ox = Math.cos(theta) * Math.sin(phi);
       const oy = Math.cos(phi);
       const oz = Math.sin(theta) * Math.sin(phi);
@@ -514,168 +515,86 @@ export class ThreePetRenderer {
         this.muzzle,
         rootObj,
         outwardObj,
-        0.008 + Math.random() * 0.006,
+        0.009 + (index % 3) * 0.0015,
         creamFur,
-        index,
-        0.002,
+        index * 0.11,
+        0.001,
       );
     }
 
-    // 4. Chest Fur - front feathers with jitter (800 hairs)
-    for (let index = 0; index < 800; index += 1) {
-      const ring = Math.floor(index / 16);
-      const angle = ((index % 16) / 16) * Math.PI * 2 + (Math.random() - 0.5) * 0.25;
-      const x = 0.48 + ring * 0.015 + (Math.random() - 0.5) * 0.01;
-      const normX = x / 1.46;
-      const rCross = Math.sqrt(Math.max(0, 0.92 * 0.92 - normX * normX));
-      rootObj.set(
-        x,
-        0.94 + Math.cos(angle) * rCross * 0.72,
-        Math.sin(angle) * rCross * 0.76,
-      );
-      outwardObj.set(0.45, Math.cos(angle) - 0.2, Math.sin(angle)).normalize();
-      this.addHairStrand(
-        this.body,
-        rootObj,
-        outwardObj,
-        0.13 + (index % 5) * 0.014,
-        index % 3 === 0 ? creamFur : furMaterial,
-        index,
-        0.012,
-      );
-    }
-
-    // 5. Underbelly Fur - bottom hanging skirt with jitter (800 hairs)
-    for (let index = 0; index < 800; index += 1) {
-      const side = index % 2 ? -1 : 1;
-      const row = Math.floor(index / 2);
-      const xProgress = (row % 40) / 39;
-      const x = -0.92 + xProgress * 1.8 + (Math.random() - 0.5) * 0.035;
-      const normX = x / 1.46;
-      const rCross = Math.sqrt(Math.max(0, 0.92 * 0.92 - normX * normX));
-      const vertical = -0.4 - (Math.floor(row / 40) * 0.05) + (Math.random() - 0.5) * 0.02;
-      rootObj.set(
-        x,
-        0.94 + vertical * rCross * 0.72,
-        side * Math.sqrt(Math.max(0, 1 - vertical * vertical)) * rCross * 0.76,
-      );
-      outwardObj.set(-0.08, -0.6, side * 0.4).normalize();
-      this.addHairStrand(
-        this.body,
-        rootObj,
-        outwardObj,
-        0.085 + (index % 5) * 0.012,
-        index % 3 === 0 ? creamFur : furMaterial,
-        index * 0.8,
-        0.014,
-      );
-    }
-
-    // 6. Neck/Collar Fur (600 hairs)
-    for (const side of [-1, 1]) {
-      for (let index = 0; index < 300; index += 1) {
-        const row = Math.floor(index / 20);
-        const across = (index % 20) / 19;
-        rootObj.set(
-          -0.18 + row * 0.012 + (Math.random() - 0.5) * 0.005,
-          0.12 - row * 0.024 + (Math.random() - 0.5) * 0.005,
-          side * (0.50 + across * 0.03),
-        );
-        outwardObj.set(-0.15, -0.8, side * 0.25).normalize();
-        this.addHairStrand(
-          this.head,
-          rootObj,
-          outwardObj,
-          0.075 + across * 0.045,
-          index % 4 === 0 ? creamFur : furMaterial,
-          index + side * 3,
-          0.012,
-        );
-      }
-    }
-
-    // 7. Leg Fur (1,600 hairs)
+    // Cylindrical sampling keeps leg hair even instead of forming side patches.
     for (const leg of this.legs) {
-      for (let i = 1; i <= 3; i++) {
-        const progress = i / 3;
-        const shellScale = new THREE.Vector3(
-          1.0 * (1.0 + progress * 0.08),
-          1.0 * (1.0 + progress * 0.08),
-          1.0 * (1.0 + progress * 0.08),
-        );
-        const opacity = 0.16 * (1.0 - progress * 0.7);
-        this.addCoatShell(
-          leg.group,
-          new THREE.CylinderGeometry(0.19, 0.17, 0.59, 18),
-          shellScale,
-          new THREE.Vector3(0, -0.28, 0),
-          0xd69345,
-          opacity,
-        );
-      }
-      for (let index = 0; index < 250; index += 1) {
-        const side = index % 2 ? -1 : 1;
-        const row = Math.floor(index / 2);
-        const angle = (row / 125) * Math.PI * 2 + (Math.random() - 0.5) * 0.05;
-        rootObj.set(
-          Math.sin(angle) * 0.18,
-          -0.04 - (row / 125) * 0.5,
-          side * 0.17,
-        );
-        outwardObj.set(Math.sin(angle) * 0.2, -0.76, side * 0.25).normalize();
-        this.addHairStrand(
-          leg.group,
-          rootObj,
-          outwardObj,
-          0.05 + (index % 4) * 0.008,
-          index % 5 === 0 ? creamFur : furMaterial,
-          index,
-          0.007,
-        );
+      const upperRows = 11;
+      const upperColumns = 18;
+      for (let row = 0; row < upperRows; row += 1) {
+        const y = -0.04 - (row / (upperRows - 1)) * 0.5;
+        const radius = THREE.MathUtils.lerp(0.185, 0.165, row / (upperRows - 1));
+        for (let column = 0; column < upperColumns; column += 1) {
+          const index = row * upperColumns + column;
+          const angle = (column / upperColumns) * Math.PI * 2;
+          rootObj.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
+          outwardObj.set(Math.cos(angle), -0.16, Math.sin(angle)).normalize();
+          this.addHairStrand(
+            leg.group,
+            rootObj,
+            outwardObj,
+            0.025 + (index % 4) * 0.003,
+            furMaterial,
+            index * 0.09,
+            0.002,
+          );
+        }
       }
 
-      for (let index = 0; index < 150; index += 1) {
-        const side = index % 2 ? -1 : 1;
-        const row = Math.floor(index / 2);
-        const angle = (row / 75) * Math.PI * 2 + (Math.random() - 0.5) * 0.05;
-        rootObj.set(
-          Math.sin(angle) * 0.14,
-          -0.08 - (row / 75) * 0.35,
-          side * 0.13,
-        );
-        outwardObj.set(Math.sin(angle) * 0.2, -0.62, side * 0.8).normalize();
-        this.addHairStrand(
-          leg.lower,
-          rootObj,
-          outwardObj,
-          0.065 + (index % 4) * 0.008,
-          creamFur,
-          index,
-          0.012,
-        );
+      const lowerRows = 9;
+      const lowerColumns = 16;
+      for (let row = 0; row < lowerRows; row += 1) {
+        const y = -0.03 - (row / (lowerRows - 1)) * 0.34;
+        const radius = THREE.MathUtils.lerp(0.15, 0.13, row / (lowerRows - 1));
+        for (let column = 0; column < lowerColumns; column += 1) {
+          const index = row * lowerColumns + column;
+          const angle = (column / lowerColumns) * Math.PI * 2;
+          rootObj.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
+          outwardObj.set(Math.cos(angle), -0.18, Math.sin(angle)).normalize();
+          this.addHairStrand(
+            leg.lower,
+            rootObj,
+            outwardObj,
+            0.026 + (index % 3) * 0.003,
+            creamFur,
+            index * 0.1,
+            0.002,
+          );
+        }
       }
     }
 
-    // Long ear feathering is a defining golden retriever feature.
+    // Sparse, tapered ear feathering reads as soft hair rather than a fringe curtain.
     this.ears.forEach((ear, earIndex) => {
-      for (let index = 0; index < 180; index += 1) {
-        const row = Math.floor(index / 12);
-        const across = (index % 12) / 11;
-        rootObj.set(
-          (across - 0.5) * 0.3,
-          0.25 - row * 0.045,
-          (earIndex === 0 ? 1 : -1) * (0.08 + across * 0.05),
-        );
-        outwardObj.set(-0.1, -1, earIndex === 0 ? 0.18 : -0.18).normalize();
-        this.addHairStrand(
-          ear,
-          rootObj,
-          outwardObj,
-          0.08 + (row / 14) * 0.1 + (index % 4) * 0.008,
-          index % 4 === 0 ? furMaterial : this.darkGolden,
-          index + earIndex * 37,
-          0.016,
-        );
+      const earRows = 7;
+      const earColumns = 8;
+      for (let row = 0; row < earRows; row += 1) {
+        const yProgress = row / (earRows - 1);
+        for (let column = 0; column < earColumns; column += 1) {
+          const across = column / (earColumns - 1);
+          const index = row * earColumns + column;
+          const side = earIndex === 0 ? 1 : -1;
+          rootObj.set(
+            (across - 0.5) * 0.28,
+            0.12 - yProgress * 0.5,
+            side * 0.1,
+          );
+          outwardObj.set(-0.08, -0.9, side * 0.15).normalize();
+          this.addHairStrand(
+            ear,
+            rootObj,
+            outwardObj,
+            0.035 + yProgress * 0.035 + (column % 2) * 0.004,
+            this.darkGolden,
+            index * 0.12,
+            0.003,
+          );
+        }
       }
     });
   }
@@ -836,8 +755,8 @@ export class ThreePetRenderer {
       segment.position.z = -0.22;
       parent.add(segment);
 
-      for (let i = 1; i <= 3; i++) {
-        const progress = i / 3;
+      for (let i = 1; i <= 2; i++) {
+        const progress = i / 2;
         const rTop = (0.15 - index * 0.018) * (1.0 + progress * 0.16);
         const rBottom = (0.13 - index * 0.018) * (1.0 + progress * 0.16);
         this.addCoatShell(
@@ -846,22 +765,35 @@ export class ThreePetRenderer {
           new THREE.Vector3(1, 1, 1),
           new THREE.Vector3(0, 0, 0),
           0xd69345,
-          0.16 * (1.0 - progress * 0.72),
+          0.08 * (1.0 - progress * 0.65),
         );
       }
-      for (let feather = 0; feather < 48; feather += 1) {
-        const angle = (feather / 48) * Math.PI * 2;
-        rootObj.set(Math.sin(angle) * 0.12, Math.cos(angle) * 0.12, -0.18);
-        outwardObj.set(Math.sin(angle), Math.cos(angle), -0.32).normalize();
-        this.addHairStrand(
-          parent,
-          rootObj,
-          outwardObj,
-          0.12 + index * 0.012 + (feather % 3) * 0.012,
-          feather % 3 === 0 ? this.cream : this.lightGolden,
-          index * 48 + feather,
-          0.018,
+
+      const tailRows = 6;
+      const tailColumns = 12;
+      for (let row = 0; row < tailRows; row += 1) {
+        const along = -0.2 + (row / (tailRows - 1)) * 0.4;
+        const radius = THREE.MathUtils.lerp(
+          0.14 - index * 0.018,
+          0.12 - index * 0.018,
+          row / (tailRows - 1),
         );
+        for (let column = 0; column < tailColumns; column += 1) {
+          const strandIndex = row * tailColumns + column;
+          const angle = (column / tailColumns) * Math.PI * 2;
+          const underside = THREE.MathUtils.smoothstep(-Math.sin(angle), 0.1, 0.9);
+          rootObj.set(Math.cos(angle) * radius, along, Math.sin(angle) * radius);
+          outwardObj.set(Math.cos(angle), -0.2, Math.sin(angle)).normalize();
+          this.addHairStrand(
+            segment,
+            rootObj,
+            outwardObj,
+            0.028 + underside * 0.018 + (strandIndex % 3) * 0.003,
+            strandIndex % 5 === 0 ? this.cream : this.lightGolden,
+            index * 11 + strandIndex * 0.08,
+            0.003,
+          );
+        }
       }
       const joint = new THREE.Group();
       joint.position.z = -0.43;
@@ -1107,9 +1039,9 @@ export class ThreePetRenderer {
     phase: number,
     movement: number,
   ): void {
-    const flowX = -0.2 * 0.82 + outward.x * 0.18;
-    const flowY = -0.76 * 0.82 + outward.y * 0.18;
-    const flowZ = outward.z * 0.2 * 0.82 + outward.z * 0.18;
+    const flowX = -0.28 * 0.58 + outward.x * 0.42;
+    const flowY = -0.54 * 0.58 + outward.y * 0.42;
+    const flowZ = outward.z * 0.42;
     const flowLen = Math.sqrt(flowX * flowX + flowY * flowY + flowZ * flowZ) || 1;
     const fx = flowX / flowLen;
     const fy = flowY / flowLen;
@@ -1174,7 +1106,7 @@ export class ThreePetRenderer {
         const lineMaterial = new THREE.LineBasicMaterial({
           color: sourceColor,
           transparent: true,
-          opacity: 0.58,
+          opacity: 0.34,
           depthWrite: false,
         });
 
@@ -1194,9 +1126,9 @@ export class ThreePetRenderer {
             `
             #include <begin_vertex>
             float angleOffset = position.x * 3.0 + position.z * 3.0;
-            float timeFreq = uTime * 6.5;
-            float primarySway = sin(timeFreq + angleOffset) * 0.045;
-            float secondarySway = cos(timeFreq * 0.8 + position.y * 5.0) * 0.025 * (1.0 + uGait * 2.2);
+            float timeFreq = uTime * 4.2;
+            float primarySway = sin(timeFreq + angleOffset) * 0.012;
+            float secondarySway = cos(timeFreq * 0.8 + position.y * 5.0) * 0.006 * (1.0 + uGait * 1.4);
             float totalSwayX = (primarySway + secondarySway) * pow(hairProgress, 1.5);
             float totalSwayZ = (primarySway - secondarySway) * pow(hairProgress, 1.5);
             transformed.x += totalSwayX;
