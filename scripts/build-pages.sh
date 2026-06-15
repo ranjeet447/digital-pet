@@ -5,6 +5,10 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OUTPUT_DIR="${1:-"$ROOT_DIR/.pages"}"
 WEB_DIR="$ROOT_DIR/web"
 
+if [[ "$OUTPUT_DIR" != /* ]]; then
+  OUTPUT_DIR="$ROOT_DIR/$OUTPUT_DIR"
+fi
+
 rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR/downloads"
 
