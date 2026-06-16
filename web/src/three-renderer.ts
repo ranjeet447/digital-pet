@@ -200,8 +200,6 @@ export class ThreePetRenderer {
     ];
     this.ears = this.buildHead();
     this.buildTail();
-    this.buildFur();
-    this.finalizeFur();
     this.tongue = this.buildMouth();
     this.fetchBall = this.buildBalls();
     this.treat = this.buildCareProps();

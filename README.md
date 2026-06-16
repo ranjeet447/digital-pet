@@ -12,11 +12,12 @@ barks when sounds are enabled, and takes naps in a corner.
 
 ## Version 0.3.0
 
-- Realistic procedural 3D fur (~25,000+ strands with lightweight layered shells)
+- Cleaner 3D golden retriever model with a textured warm coat
 - Golden retriever anatomy with a broad muzzle, feathered ears, chest ruff, large
   paws, plumed tail, and Shiro's red collar
-- Custom GPU-based hair shader sways for flexible coat sways
 - Interactive floppy ear secondary spring-damping physics
+- More autonomous play: fetch, barking, surprise tricks, food requests, quiet
+  watching, movement, and corner naps
 - Five persistent sizes including a new "Extra Small 50%" option
 - Web and Desktop client bundle builds updated
 

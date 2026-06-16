@@ -1,26 +1,25 @@
 # Digital Pet v0.3.0
 
-Digital Pet v0.3.0 introduces visual and physics realism upgrades for Shiro's 3D procedural coat, dynamic ear animations, and a new "extra-small" size option.
+Digital Pet v0.3.0 introduces a cleaner 3D golden retriever model, dynamic ear animations, richer autonomous behavior, and a new "extra-small" size option.
 
 ## Highlights
 
-- **Procedural 3D Fur Realism**:
-  - Ultra-dense coat (~25,000+ individual strands) covering the entire body, head, collar, legs, and tail.
-  - Multi-toned base fur texture replacing the solid underlying plastic skin.
+- **Cleaner 3D Golden Retriever Model**:
+  - Removed the experimental strand-fur layer from the active 3D renderer because it looked noisy at desktop-widget scale.
+  - Multi-toned base coat texture keeps Shiro warm and retriever-like without needle-shaped hair artifacts.
   - Reshaped golden retriever anatomy with a broad head and muzzle, jowls, expressive eyes, feathered low-set ears, deep chest, large paws, and plumed tail.
   - Shiro details including his red collar and gold tag.
-  - Lightweight stacked shell layers for a soft silhouette without hiding the retriever anatomy.
-- **GPU-Bound Sway Physics**:
-  - Vertex shader integration via `onBeforeCompile` to compute hair sways on the GPU.
-  - Roots remain anchored while hair tips react dynamically to gait, speed, and time.
 - **Dynamic Floppy Ears**:
   - Secondary spring-damping physical simulations for natural ear bouncing and head tilt lag.
+- **Richer Autonomous Behavior**:
+  - Shiro can now independently fetch a ball, bark, perform a surprise trick, ask for food, watch quietly, move around, or nap in a corner.
+  - Food requests now trigger before hunger reaches the maximum, so the pet feels more alive during longer sessions.
 - **Extra Small Size Option**:
   - Added a new `"extra-small"` size option (mapped to **50% scale**) for compact desktop and web layouts.
   - Restyled control panels to support five selectable sizes.
 - **Optimized Performance**:
-  - Hair geometry batched by coat region and material to limit draw calls.
-  - Allocation-light strand curve generation for faster startup.
+  - The active 3D renderer avoids the heavy explicit strand-fur layer for faster startup and cleaner visuals.
+  - 2D and 3D modes continue to share the same commands, care actions, sounds, and autonomous behavior.
 
 ## Desktop Downloads
 
@@ -29,4 +28,4 @@ Digital Pet v0.3.0 introduces visual and physics realism upgrades for Shiro's 3D
 - Windows x64 portable executable
 - Linux x64 AppImage
 
-The desktop app inherits the realism upgrades, floppy ear physics, and the new 50% scale option.
+The desktop app inherits the cleaner 3D model, autonomous behavior updates, floppy ear physics, and the new 50% scale option.

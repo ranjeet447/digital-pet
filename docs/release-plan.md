@@ -11,7 +11,7 @@ All platforms follow
 
 ## Version 0.3.0
 
-Version 0.3.0 introduces visual and physics realism upgrades for Shiro's 3D procedural coat, floppy ear secondary motion, and a new extra-small size.
+Version 0.3.0 introduces a cleaner 3D golden retriever model, richer autonomous behavior, floppy ear secondary motion, and a new extra-small size.
 
 ### Web
 
@@ -35,13 +35,13 @@ Version 0.3.0 introduces visual and physics realism upgrades for Shiro's 3D proc
 ### Shared Features
 
 - 2D illustrated and 3D WebGL views
-- Improved golden-retriever coat and flexible tail
+- Cleaner textured 3D golden-retriever model and flexible tail
 - All trained commands
 - Feed, treat, surprise, food requests, and hunger behavior
 - Optional bark sound and volume control
 - Five sizes
 - Balls and fetch
-- Autonomous movement, pointer response, tricks, and naps
+- Autonomous movement, pointer response, fetch, barking, surprise tricks, food requests, and naps
 
 ## Distribution
 

@@ -1144,7 +1144,7 @@ export class DigitalPetElement extends HTMLElement {
   }
 
   private chooseAutonomousBehavior(): void {
-    if (this.hunger >= 72) {
+    if (this.hunger >= 82 || (this.hunger >= 62 && Math.random() > 0.58)) {
       this.setTimedBehavior("ask-food", TRICK_DURATION["ask-food"] ?? 3200);
       this.say("Food, please?");
       this.playBark("hungry");
@@ -1159,19 +1159,47 @@ export class DigitalPetElement extends HTMLElement {
     }
 
     const roll = Math.random() * 100;
-    if (roll < 38) {
+    if (roll < 26) {
       this.startMoving(false);
-    } else if (roll < 53) {
+    } else if (roll < 40) {
       this.startMoving(true);
-    } else if (roll < 72) {
+    } else if (roll < 54) {
+      this.startAutonomousPlay("fetch");
+    } else if (roll < 64) {
+      this.startAutonomousPlay("speak");
+    } else if (roll < 74) {
+      this.startAutonomousPlay("surprise");
+    } else if (roll < 84) {
       this.setTimedBehavior("idle", randomBetween(4000, 9000));
-    } else if (roll < 92) {
+      this.say(Math.random() > 0.5 ? "Watching..." : "Ball?");
+    } else if (roll < 94) {
       this.randomTrick();
     } else {
       this.moveToNearestCorner();
       this.setTimedBehavior("sleeping", randomBetween(12000, 24000));
       this.say("Zzz...");
     }
+  }
+
+  private startAutonomousPlay(command: Extract<DigitalPetCommand, "fetch" | "speak" | "surprise">): void {
+    if (command === "fetch") {
+      this.ballColor = BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)];
+      this.setTimedBehavior("fetch", TRICK_DURATION.fetch ?? 3200);
+      this.say("Ball!");
+      this.playBark("excited");
+      return;
+    }
+
+    if (command === "speak") {
+      this.setTimedBehavior("speak", TRICK_DURATION.speak ?? 1600);
+      this.say("Woof!");
+      this.playBark("speak");
+      return;
+    }
+
+    this.setTimedBehavior("surprise", TRICK_DURATION.surprise ?? 2800);
+    this.say("Surprise!");
+    this.playBark("excited");
   }
 
   private startMoving(running: boolean): void {
