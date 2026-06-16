@@ -13,6 +13,8 @@ rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR/downloads"
 
 cp "$WEB_DIR/demo/index.html" "$OUTPUT_DIR/index.html"
+cp "$WEB_DIR/demo/googleb0d58790792acd24.html" "$OUTPUT_DIR/googleb0d58790792acd24.html"
+cp "$WEB_DIR/demo/sitemap.xml" "$OUTPUT_DIR/sitemap.xml"
 cp -R "$WEB_DIR/demo/images" "$OUTPUT_DIR/images"
 cp -R "$WEB_DIR/dist" "$OUTPUT_DIR/dist"
 cp -R "$WEB_DIR/assets" "$OUTPUT_DIR/assets"
