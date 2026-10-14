@@ -308,6 +308,46 @@ template.innerHTML = `
       background: #dcc1a4;
     }
 
+    .npm-badge-row {
+      margin-top: 9px;
+      padding-top: 8px;
+      border-top: 1px solid rgb(125 80 40 / 12%);
+      text-align: center;
+    }
+
+    .npm-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 7px 10px;
+      border-radius: 10px;
+      background: #fbf5ed;
+      border: 1px solid #ead8c4;
+      color: #76451e;
+      font-size: 11.5px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+    }
+
+    .npm-link:hover {
+      background: #fff4e7;
+      border-color: #cb3837;
+      color: #cb3837;
+    }
+
+    .npm-icon {
+      flex-shrink: 0;
+    }
+
+    .npm-arrow {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
     .sound-row {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -381,6 +421,21 @@ template.innerHTML = `
     <div class="footer-actions">
       <button class="bring" type="button">Bring here</button>
       <button class="hide-pet" type="button">Hide <span data-pet-name>Shiro</span></button>
+    </div>
+    <div class="npm-badge-row">
+      <a
+        class="npm-link"
+        href="https://www.npmjs.com/package/@ranjeet447/digital-pet"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="View @ranjeet447/digital-pet on npm"
+      >
+        <svg class="npm-icon" viewBox="0 0 780 250" width="28" height="10" aria-hidden="true">
+          <path fill="#CB3837" d="M240,250h100v-50h100V0H240V250z M340,50h50v100h-50V50z M480,0v200h100V50h50v150h50V50h50v150h50V0H480z M0,200h100V50h50v150h50V0H0V200z"/>
+        </svg>
+        <span class="npm-text">@ranjeet447/digital-pet</span>
+        <span class="npm-arrow">↗</span>
+      </a>
     </div>
   </section>
 `;

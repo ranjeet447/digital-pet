@@ -96,7 +96,10 @@ export class ThreePetRenderer {
   }> = [];
   private readonly ears: [THREE.Mesh, THREE.Mesh];
   private readonly legs: [LegRig, LegRig, LegRig, LegRig];
+  private readonly eyelids: THREE.Mesh[] = [];
   private lastTime = 0;
+  private blinkTimer = 0;
+  private nextBlinkTime = 3.5;
   private earVelocity: [number, number] = [0, 0];
   private leftEarSway = -0.15;
   private rightEarSway = 0.15;
@@ -104,42 +107,78 @@ export class ThreePetRenderer {
   private readonly fetchBall: THREE.Mesh;
   private readonly foodBowl = new THREE.Group();
   private readonly treat: THREE.Mesh;
-  private readonly golden = new THREE.MeshStandardMaterial({
+  private readonly golden = new THREE.MeshPhysicalMaterial({
     color: 0xd69345,
-    roughness: 0.96,
+    roughness: 0.84,
     metalness: 0,
     map: this.baseFur,
     bumpMap: this.furNoise,
-    bumpScale: 0.008,
+    bumpScale: 0.007,
+    sheen: 0.88,
+    sheenColor: 0xffdfaa,
+    sheenRoughness: 0.38,
   });
-  private readonly lightGolden = new THREE.MeshStandardMaterial({
+  private readonly lightGolden = new THREE.MeshPhysicalMaterial({
     color: 0xeeb462,
-    roughness: 0.96,
+    roughness: 0.84,
     metalness: 0,
     map: this.baseFur,
     bumpMap: this.furNoise,
-    bumpScale: 0.008,
+    bumpScale: 0.007,
+    sheen: 0.88,
+    sheenColor: 0xffe9c2,
+    sheenRoughness: 0.38,
   });
-  private readonly cream = new THREE.MeshStandardMaterial({
+  private readonly cream = new THREE.MeshPhysicalMaterial({
     color: 0xf6dba1,
-    roughness: 0.98,
+    roughness: 0.88,
     metalness: 0,
     map: this.baseFur,
     bumpMap: this.furNoise,
-    bumpScale: 0.006,
+    bumpScale: 0.005,
+    sheen: 0.75,
+    sheenColor: 0xfff4db,
+    sheenRoughness: 0.42,
   });
-  private readonly darkGolden = new THREE.MeshStandardMaterial({
+  private readonly darkGolden = new THREE.MeshPhysicalMaterial({
     color: 0xa4622b,
-    roughness: 0.96,
+    roughness: 0.84,
     metalness: 0,
     map: this.baseFur,
     bumpMap: this.furNoise,
-    bumpScale: 0.01,
+    bumpScale: 0.009,
+    sheen: 0.9,
+    sheenColor: 0xdc9258,
+    sheenRoughness: 0.36,
   });
-  private readonly black = new THREE.MeshStandardMaterial({
+  private readonly black = new THREE.MeshPhysicalMaterial({
     color: 0x11100f,
-    roughness: 0.38,
+    roughness: 0.32,
     metalness: 0.05,
+    clearcoat: 0.85,
+    clearcoatRoughness: 0.08,
+  });
+  private readonly wetNose = new THREE.MeshPhysicalMaterial({
+    color: 0x14110f,
+    roughness: 0.24,
+    metalness: 0.04,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.04,
+  });
+  private readonly corneaMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    roughness: 0.02,
+    metalness: 0,
+    transmission: 0.94,
+    ior: 1.336,
+    transparent: true,
+    opacity: 1,
+    reflectivity: 0.9,
+  });
+  private readonly irisMaterial = new THREE.MeshStandardMaterial({
+    color: 0x4a2a12,
+    roughness: 0.42,
+    metalness: 0.02,
   });
 
   constructor(canvas: HTMLCanvasElement) {
@@ -287,6 +326,50 @@ export class ThreePetRenderer {
 
     this.ears[0].rotation.z = Math.sin(frame.time * 1.8) * 0.03 + (gaitSpeed > 0 ? Math.sin(frame.time * gaitSpeed) * 0.08 : 0);
     this.ears[1].rotation.z = -Math.sin(frame.time * 1.8) * 0.03 - (gaitSpeed > 0 ? Math.sin(frame.time * gaitSpeed) * 0.08 : 0);
+
+    // Natural chest and ribcage respiration (breathing)
+    if (!frame.reducedMotion) {
+      const breathSpeed = frame.behavior === "sleeping" ? 1.5 : ["running", "chasing", "fetch"].includes(frame.behavior) ? 5.0 : 2.2;
+      const breathDepth = frame.behavior === "sleeping" ? 0.032 : ["running", "chasing", "fetch"].includes(frame.behavior) ? 0.04 : 0.02;
+      const breath = Math.sin(frame.time * breathSpeed);
+      this.body.scale.set(
+        1 + breath * (breathDepth * 0.4),
+        1 + breath * breathDepth,
+        1 + breath * (breathDepth * 0.7),
+      );
+    }
+
+    // Natural autonomous eyelid blinking
+    if (frame.behavior === "sleeping") {
+      this.eyelids.forEach((lid) => {
+        lid.scale.y = 1.0;
+      });
+    } else if (frame.behavior === "down") {
+      this.eyelids.forEach((lid) => {
+        lid.scale.y = 0.55;
+      });
+    } else if (!frame.reducedMotion) {
+      this.blinkTimer += dt;
+      if (this.blinkTimer >= this.nextBlinkTime) {
+        const blinkPhase = (this.blinkTimer - this.nextBlinkTime) / 0.16;
+        if (blinkPhase <= 1) {
+          const blinkScale = Math.sin(blinkPhase * Math.PI);
+          this.eyelids.forEach((lid) => {
+            lid.scale.y = Math.max(0.01, blinkScale);
+          });
+        } else {
+          this.eyelids.forEach((lid) => {
+            lid.scale.y = 0.01;
+          });
+          this.blinkTimer = 0;
+          this.nextBlinkTime = 3.2 + Math.random() * 3.8;
+        }
+      } else {
+        this.eyelids.forEach((lid) => {
+          lid.scale.y = 0.01;
+        });
+      }
+    }
 
     this.applyBehavior(frame);
     this.renderer.render(this.scene, this.camera);
@@ -636,30 +719,68 @@ export class ThreePetRenderer {
     chin.position.set(0.06, -0.24, 0);
     this.muzzle.add(chin);
 
-    const nose = this.mesh(new THREE.SphereGeometry(0.2, 28, 18), this.black);
-    nose.scale.set(0.82, 0.62, 1.04);
-    nose.position.set(0.38, 0.06, 0);
+    const nose = this.mesh(new THREE.SphereGeometry(0.19, 28, 18), this.wetNose);
+    nose.scale.set(0.85, 0.65, 1.05);
+    nose.position.set(0.38, 0.05, 0);
     this.muzzle.add(nose);
 
-    const irisMaterial = new THREE.MeshStandardMaterial({
-      color: 0x3a2417,
-      roughness: 0.28,
-      metalness: 0.02,
-    });
+    // Anatomical nostrils (two dark recessed cavities)
+    for (const z of [-0.07, 0.07]) {
+      const nostril = this.mesh(new THREE.CapsuleGeometry(0.032, 0.045, 6, 12), this.black);
+      nostril.scale.set(0.65, 1.1, 0.85);
+      nostril.position.set(0.44, 0.035, z);
+      nostril.rotation.z = -0.3;
+      nostril.rotation.y = z < 0 ? -0.25 : 0.25;
+      this.muzzle.add(nostril);
+    }
+
+    // Philtrum groove down from nose
+    const philtrum = this.mesh(new THREE.BoxGeometry(0.018, 0.09, 0.014), this.black);
+    philtrum.position.set(0.37, -0.06, 0);
+    this.muzzle.add(philtrum);
+
     for (const z of [-0.255, 0.255]) {
-      const eye = this.mesh(new THREE.SphereGeometry(0.094, 22, 16), irisMaterial);
-      eye.scale.set(0.9, 1.04, 1);
-      eye.position.set(0.43, 0.18, z);
-      this.head.add(eye);
-      const pupil = this.mesh(new THREE.SphereGeometry(0.054, 18, 12), this.black);
-      pupil.position.set(0.5, 0.18, z + (z < 0 ? -0.01 : 0.01));
+      const eyeBase = this.mesh(
+        new THREE.SphereGeometry(0.096, 24, 18),
+        new THREE.MeshStandardMaterial({
+          color: 0xeddcc8,
+          roughness: 0.35,
+        }),
+      );
+      eyeBase.scale.set(0.9, 1.04, 1);
+      eyeBase.position.set(0.43, 0.18, z);
+      this.head.add(eyeBase);
+
+      const iris = this.mesh(new THREE.SphereGeometry(0.072, 24, 16), this.irisMaterial);
+      iris.position.set(0.475, 0.18, z + (z < 0 ? -0.005 : 0.005));
+      this.head.add(iris);
+
+      const pupil = this.mesh(new THREE.SphereGeometry(0.042, 18, 12), this.black);
+      pupil.position.set(0.505, 0.18, z + (z < 0 ? -0.008 : 0.008));
       this.head.add(pupil);
+
+      const cornea = this.mesh(new THREE.SphereGeometry(0.098, 24, 18), this.corneaMaterial);
+      cornea.scale.set(0.92, 1.05, 1.02);
+      cornea.position.set(0.435, 0.18, z);
+      this.head.add(cornea);
+
       const shine = this.mesh(
-        new THREE.SphereGeometry(0.019, 12, 8),
+        new THREE.SphereGeometry(0.018, 12, 8),
         new THREE.MeshBasicMaterial({ color: 0xffffff }),
       );
-      shine.position.set(0.545, 0.22, z + (z < 0 ? -0.025 : 0.025));
+      shine.position.set(0.54, 0.22, z + (z < 0 ? -0.022 : 0.022));
       this.head.add(shine);
+
+      // Upper eyelid that blinks down
+      const eyelid = this.mesh(
+        new THREE.SphereGeometry(0.106, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.55),
+        this.darkGolden,
+      );
+      eyelid.position.set(0.43, 0.185, z);
+      eyelid.rotation.x = z < 0 ? 0.15 : -0.15;
+      eyelid.scale.set(1.02, 0.01, 1.05);
+      this.head.add(eyelid);
+      this.eyelids.push(eyelid);
     }
 
     const leftEar = this.mesh(new THREE.CapsuleGeometry(0.22, 0.46, 8, 18), this.darkGolden);
@@ -732,10 +853,19 @@ export class ThreePetRenderer {
     shin.position.y = -0.18;
     lower.add(shin);
 
-    const paw = this.mesh(new THREE.SphereGeometry(0.21, 22, 14), this.lightGolden);
-    paw.scale.set(1.34, 0.56, 1.16);
-    paw.position.set(0.11, -0.42, 0);
+    const paw = this.mesh(new THREE.SphereGeometry(0.2, 22, 14), this.lightGolden);
+    paw.scale.set(1.3, 0.52, 1.12);
+    paw.position.set(0.1, -0.42, 0);
     lower.add(paw);
+
+    // 4 Distinct Canine Toe Knuckles on Paw Front
+    const toeZ = [-0.11, -0.04, 0.04, 0.11];
+    for (let t = 0; t < 4; t++) {
+      const toe = this.mesh(new THREE.SphereGeometry(0.062, 12, 10), this.cream);
+      toe.scale.set(1.15, 0.8, 0.85);
+      toe.position.set(0.23, -0.42, toeZ[t]);
+      lower.add(toe);
+    }
 
     return { group, lower, paw };
   }
@@ -935,14 +1065,38 @@ export class ThreePetRenderer {
           this.tail.rotation.z = THREE.MathUtils.lerp(this.tail.rotation.z, -0.78, settle);
         }
         break;
-      case "roll-over":
-        this.root.position.y = -0.26 + Math.sin(p * Math.PI) * 0.18;
-        this.root.rotation.x = Math.sin(p * Math.PI) * Math.PI;
-        this.legs.forEach((leg, index) => {
-          leg.group.rotation.z = (index % 2 ? -1 : 1) * Math.sin(p * Math.PI) * 0.92;
-        });
-        this.tongue.visible = p > 0.25 && p < 0.75;
+      case "roll-over": {
+        // Natural roll-over along the dog's local spine axis (longitudinal body axis)
+        if (p < 0.22) {
+          const dropProgress = p / 0.22;
+          this.root.position.y = -0.34 * dropProgress;
+          this.legs.forEach((leg, i) => {
+            leg.group.rotation.z = (i < 2 ? 0.95 : -0.95) * dropProgress;
+            leg.lower.rotation.z = -0.7 * dropProgress;
+          });
+          this.head.rotation.z = -0.15 * dropProgress;
+        } else if (p < 0.78) {
+          const rollPhase = (p - 0.22) / 0.56;
+          this.root.position.y = -0.34 + Math.sin(rollPhase * Math.PI) * 0.09;
+          // Rotate strictly along the local spine axis of the body
+          this.body.rotation.x = rollPhase * Math.PI * 2;
+          const onBack = Math.sin(rollPhase * Math.PI);
+          this.legs.forEach((leg, index) => {
+            leg.group.rotation.z = (index % 2 ? -0.45 : 0.45) * (1 - onBack * 0.6);
+            leg.lower.rotation.z = 0.55 * onBack;
+          });
+          this.tongue.visible = onBack > 0.2;
+        } else {
+          const riseProgress = (p - 0.78) / 0.22;
+          this.root.position.y = -0.34 * (1 - riseProgress);
+          this.legs.forEach((leg, i) => {
+            leg.group.rotation.z = (i < 2 ? 0.95 : -0.95) * (1 - riseProgress);
+            leg.lower.rotation.z = -0.7 * (1 - riseProgress);
+          });
+          this.head.rotation.z = -0.15 * (1 - riseProgress);
+        }
         break;
+      }
       case "speak":
         this.head.rotation.z = Math.sin(frame.time * 18) * 0.08 * lift;
         this.muzzle.rotation.z = Math.sin(frame.time * 22) * 0.06;
@@ -980,14 +1134,28 @@ export class ThreePetRenderer {
         this.head.rotation.z = 0.15 * Math.sin(frame.time * 5);
         this.legs[0].group.rotation.z = 0.38 * Math.sin(frame.time * 4);
         break;
-      case "surprise":
-        this.root.rotation.y += p * Math.PI * 2;
-        this.root.position.y += Math.sin(p * Math.PI) * 0.6;
-        this.legs.forEach((leg, index) => {
-          leg.group.rotation.z = (index % 2 ? -1 : 1) * Math.sin(p * Math.PI * 4) * 0.5;
-        });
+      case "surprise": {
+        // Natural grounded spin: rotate smoothly around vertical ground Y axis on all fours
+        const initialAngle = ((1 - frame.facing) / 2) * Math.PI;
+        const spinTurn = p * Math.PI * 2;
+        this.root.rotation.y = initialAngle + spinTurn;
+        // Keep grounded on floor with subtle rhythmic footfall bounce
+        this.root.position.y = Math.abs(Math.sin(p * Math.PI * 6)) * 0.035;
+
+        // Curved spine into the turn like a dog chasing its tail
+        this.body.rotation.y = Math.sin(p * Math.PI * 2) * 0.24;
+        this.head.rotation.y = 0.36; // Turn head inward into the spin
+        this.tail.rotation.y = -0.55 + Math.sin(frame.time * 24) * 0.35; // Excited tail wag
+
+        // Rapid rhythmic stepping footfalls around the circle
+        const stepRate = frame.time * 18;
+        this.legs[0].group.rotation.z = Math.sin(stepRate) * 0.45;
+        this.legs[1].group.rotation.z = Math.sin(stepRate + Math.PI) * 0.45;
+        this.legs[2].group.rotation.z = Math.sin(stepRate * 0.6) * 0.28;
+        this.legs[3].group.rotation.z = Math.sin(stepRate * 0.6 + Math.PI) * 0.28;
         this.tongue.visible = true;
         break;
+      }
       case "running":
       case "chasing":
         this.tongue.visible = true;

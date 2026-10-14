@@ -22,6 +22,7 @@ const COMMANDS = [
 ];
 
 const SIZES = [
+  ["extra-small", "Extra Small (50%)"],
   ["small", "Small (75%)"],
   ["normal", "Normal (100%)"],
   ["large", "Large (125%)"],
@@ -177,6 +178,12 @@ function createWindow() {
   petWindow.setAlwaysOnTop(true, process.platform === "darwin" ? "screen-saver" : "floating");
   petWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   petWindow.setIgnoreMouseEvents(true, { forward: true });
+  petWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const { shell } = require("electron");
+    shell.openExternal(url);
+    return { action: "deny" };
+  });
+
   petWindow.loadFile(path.join(__dirname, "app", "index.html"));
   petWindow.once("ready-to-show", () => petWindow.showInactive());
   petWindow.on("closed", () => {
