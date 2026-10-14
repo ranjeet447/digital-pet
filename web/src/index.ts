@@ -428,12 +428,12 @@ template.innerHTML = `
         href="https://www.npmjs.com/package/@ranjeet447/digital-pet"
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="View @ranjeet447/digital-pet on npm"
+        aria-label="Try @ranjeet447/digital-pet on npm"
       >
-        <svg class="npm-icon" viewBox="0 0 780 250" width="28" height="10" aria-hidden="true">
+        <svg class="npm-icon" viewBox="0 0 780 250" width="30" height="11" aria-hidden="true">
           <path fill="#CB3837" d="M240,250h100v-50h100V0H240V250z M340,50h50v100h-50V50z M480,0v200h100V50h50v150h50V50h50v150h50V0H480z M0,200h100V50h50v150h50V0H0V200z"/>
         </svg>
-        <span class="npm-text">@ranjeet447/digital-pet</span>
+        <span class="npm-text">Try now</span>
         <span class="npm-arrow">↗</span>
       </a>
     </div>
@@ -466,10 +466,11 @@ export class DigitalPetElement extends HTMLElement {
   private behavior: Behavior = "idle";
   private sizeValue: DigitalPetSize = "normal";
   private position: Point = { x: 20, y: 20 };
-  private targetX: number | null = null;
+  private targetPosition: Point | null = null;
   private direction = -1;
   private facingScale = -1;
   private horizontalVelocity = 0;
+  private verticalVelocity = 0;
   private renderedBounce = 0;
   private pointer: Point = { x: -1000, y: -1000 };
   private pointerMovedAt = 0;
@@ -1167,34 +1168,48 @@ export class DigitalPetElement extends HTMLElement {
   }
 
   private updateMovement(deltaSeconds: number, speed: number): void {
-    if (this.targetX === null) {
+    if (this.targetPosition === null) {
       this.setBehavior("idle");
       return;
     }
-    const difference = this.targetX - this.position.x;
-    if (Math.abs(difference) < 3) {
-      this.position.x = this.targetX;
-      this.targetX = null;
+    const diffX = this.targetPosition.x - this.position.x;
+    const diffY = this.targetPosition.y - this.position.y;
+    const distance = Math.hypot(diffX, diffY);
+    if (distance < 5) {
+      this.position.x = this.targetPosition.x;
+      this.position.y = this.targetPosition.y;
+      this.targetPosition = null;
       this.horizontalVelocity = 0;
+      this.verticalVelocity = 0;
       this.setBehavior("idle");
       this.nextDecisionAt = performance.now() + randomBetween(3000, 7000);
       return;
     }
-    this.direction = difference < 0 ? -1 : 1;
-    const approachScale = clamp(Math.abs(difference) / 70, 0.2, 1);
-    const desiredVelocity = this.direction * speed * approachScale;
-    this.horizontalVelocity = damp(this.horizontalVelocity, desiredVelocity, 9, deltaSeconds);
+    this.direction = diffX < 0 ? -1 : 1;
+    const approachScale = clamp(distance / 70, 0.25, 1);
+    const desiredVx = (diffX / distance) * speed * approachScale;
+    const desiredVy = (diffY / distance) * (speed * 0.75) * approachScale;
+    this.horizontalVelocity = damp(this.horizontalVelocity, desiredVx, 9, deltaSeconds);
+    this.verticalVelocity = damp(this.verticalVelocity, desiredVy, 9, deltaSeconds);
     this.position.x += this.horizontalVelocity * deltaSeconds;
+    this.position.y += this.verticalVelocity * deltaSeconds;
     this.clampPosition();
   }
 
   private updateChase(deltaSeconds: number): void {
-    const desiredX = clamp(this.pointer.x - this.displayWidth / 2, 0, window.innerWidth - this.displayWidth);
-    const difference = desiredX - this.position.x;
-    if (Math.abs(difference) < 55) return;
-    this.direction = difference < 0 ? -1 : 1;
-    this.horizontalVelocity = damp(this.horizontalVelocity, this.direction * 88, 10, deltaSeconds);
+    const desiredX = clamp(this.pointer.x - this.displayWidth / 2, 0, Math.max(0, window.innerWidth - this.displayWidth));
+    const desiredY = clamp(this.pointer.y - this.displayHeight / 2, 0, Math.max(0, window.innerHeight - this.displayHeight - FLOOR_MARGIN));
+    const diffX = desiredX - this.position.x;
+    const diffY = desiredY - this.position.y;
+    const distance = Math.hypot(diffX, diffY);
+    if (distance < 45) return;
+    this.direction = diffX < 0 ? -1 : 1;
+    const desiredVx = (diffX / distance) * 92;
+    const desiredVy = (diffY / distance) * 75;
+    this.horizontalVelocity = damp(this.horizontalVelocity, desiredVx, 10, deltaSeconds);
+    this.verticalVelocity = damp(this.verticalVelocity, desiredVy, 10, deltaSeconds);
     this.position.x += this.horizontalVelocity * deltaSeconds;
+    this.position.y += this.verticalVelocity * deltaSeconds;
     this.clampPosition();
   }
 
@@ -1258,7 +1273,13 @@ export class DigitalPetElement extends HTMLElement {
   }
 
   private startMoving(running: boolean): void {
-    this.targetX = randomBetween(0, Math.max(0, window.innerWidth - this.displayWidth));
+    const maxX = Math.max(0, window.innerWidth - this.displayWidth);
+    const maxY = Math.max(0, window.innerHeight - this.displayHeight - FLOOR_MARGIN);
+    const minY = Math.max(0, Math.min(maxY, window.innerHeight * 0.12));
+    this.targetPosition = {
+      x: randomBetween(0, maxX),
+      y: randomBetween(minY, maxY),
+    };
     this.setBehavior(running ? "running" : "walking");
     this.nextDecisionAt = Number.POSITIVE_INFINITY;
   }
@@ -1269,10 +1290,11 @@ export class DigitalPetElement extends HTMLElement {
       this.behaviorStartedAt = performance.now();
     }
     if (!["walking", "running"].includes(behavior)) {
-      this.targetX = null;
+      this.targetPosition = null;
     }
     if (!["walking", "running", "chasing"].includes(behavior)) {
       this.horizontalVelocity = 0;
+      this.verticalVelocity = 0;
     }
   }
 
