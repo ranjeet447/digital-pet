@@ -35,6 +35,7 @@ mv "$OUTPUT_DIR/downloads/${CLEAN_NAME}-${PACKAGE_VERSION}.tgz" \
   "$OUTPUT_DIR/downloads/digital-pet-${PACKAGE_VERSION}.tgz"
 
 sed -i.bak 's#\.\./dist/index\.js#./dist/index.js#g' "$OUTPUT_DIR/index.html"
+sed -i.bak 's#\.\./assets/#./assets/#g' "$OUTPUT_DIR/index.html"
 rm "$OUTPUT_DIR/index.html.bak"
 touch "$OUTPUT_DIR/.nojekyll"
 

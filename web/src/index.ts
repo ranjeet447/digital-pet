@@ -37,6 +37,7 @@ export interface DigitalPetOptions {
   size?: DigitalPetSize;
   zIndex?: number;
   startCorner?: "bottom-left" | "bottom-right";
+  modelSrc?: string;
 }
 
 type Behavior =
@@ -444,7 +445,7 @@ export class DigitalPetElement extends HTMLElement {
   static readonly tagName = "digital-pet";
 
   static get observedAttributes(): string[] {
-    return ["name", "size", "controls", "cursor-interaction", "z-index", "sound", "volume", "renderer"];
+    return ["name", "size", "controls", "cursor-interaction", "z-index", "sound", "volume", "renderer", "model-src"];
   }
 
   private canvas: HTMLCanvasElement;
@@ -581,6 +582,12 @@ export class DigitalPetElement extends HTMLElement {
     }
     if (name === "renderer" && this.connected) {
       this.initializeRenderer();
+    }
+    if (name === "model-src" && this.connected && this.threeRenderer) {
+      const modelUrl = newValue || new URL("../assets/golden-retriever.glb", import.meta.url).href;
+      if (modelUrl && modelUrl !== "procedural" && modelUrl !== "none") {
+        void this.threeRenderer.loadGLTFModel(modelUrl);
+      }
     }
   }
 
@@ -744,6 +751,18 @@ export class DigitalPetElement extends HTMLElement {
 
   get isVisible(): boolean {
     return this.visible;
+  }
+
+  get modelSrc(): string | null {
+    return this.getAttribute("model-src");
+  }
+
+  set modelSrc(value: string | null) {
+    if (value === null) {
+      this.removeAttribute("model-src");
+    } else {
+      this.setAttribute("model-src", value);
+    }
   }
 
   private get displayWidth(): number {
@@ -987,6 +1006,10 @@ export class DigitalPetElement extends HTMLElement {
       this.canvas = this.webglCanvas;
       this.webglCanvas.hidden = !this.visible;
       this.fallbackCanvas.hidden = true;
+      const modelUrl = this.getAttribute("model-src") || new URL("../assets/golden-retriever.glb", import.meta.url).href;
+      if (modelUrl && modelUrl !== "procedural" && modelUrl !== "none") {
+        void this.threeRenderer.loadGLTFModel(modelUrl);
+      }
     } catch {
       this.threeRenderer = null;
       this.rendererValue = "2d";
@@ -1887,6 +1910,7 @@ export function mountDigitalPet(options: DigitalPetOptions = {}): DigitalPetElem
   if (options.size) pet.setAttribute("size", options.size);
   if (options.zIndex !== undefined) pet.setAttribute("z-index", String(options.zIndex));
   if (options.startCorner) pet.setAttribute("start-corner", options.startCorner);
+  if (options.modelSrc) pet.setAttribute("model-src", options.modelSrc);
   document.body.append(pet);
   return pet;
 }

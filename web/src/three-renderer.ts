@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 export interface ThreePetFrame {
   behavior: string;
@@ -97,6 +98,12 @@ export class ThreePetRenderer {
   private readonly ears: [THREE.Mesh, THREE.Mesh];
   private readonly legs: [LegRig, LegRig, LegRig, LegRig];
   private readonly eyelids: THREE.Mesh[] = [];
+  private gltfModel: THREE.Group | null = null;
+  private mixer: THREE.AnimationMixer | null = null;
+  private actions: Map<string, THREE.AnimationAction> = new Map();
+  private currentAction: THREE.AnimationAction | null = null;
+  private currentBehaviorName = "idle";
+  private isModelLoaded = false;
   private lastTime = 0;
   private blinkTimer = 0;
   private nextBlinkTime = 3.5;
@@ -250,6 +257,81 @@ export class ThreePetRenderer {
     const dt = this.lastTime === 0 ? 0.016 : Math.min(0.1, frame.time - this.lastTime);
     this.lastTime = frame.time;
 
+    if (this.isModelLoaded && this.gltfModel) {
+      if (this.mixer) {
+        this.mixer.update(dt);
+        this.updateGLTFBehavior(frame.behavior);
+      }
+      const gaitSpeed =
+        frame.behavior === "walking"
+          ? 7
+          : ["running", "chasing"].includes(frame.behavior)
+            ? 12
+            : frame.behavior === "fetch"
+              ? 10
+              : 0;
+      const bounce = frame.reducedMotion
+        ? 0
+        : gaitSpeed > 0
+          ? Math.abs(Math.sin(frame.time * gaitSpeed)) * 0.08
+          : Math.sin(frame.time * 2) * 0.015;
+
+      const sideFacing = ((1 - frame.facing) / 2) * Math.PI;
+      const facesViewer = ["idle", "sit", "handshake", "hi-five", "salute", "namaste", "speak", "feed", "treat", "ask-food"].includes(
+        frame.behavior,
+      );
+
+      if (frame.behavior === "surprise") {
+        const initialAngle = sideFacing;
+        this.gltfModel.rotation.y = initialAngle + frame.progress * Math.PI * 2;
+        this.gltfModel.position.y = Math.abs(Math.sin(frame.progress * Math.PI * 6)) * 0.035;
+      } else if (frame.behavior === "roll-over") {
+        this.gltfModel.rotation.y = facesViewer ? -0.94 : sideFacing;
+        const p = frame.progress;
+        if (p < 0.22) {
+          this.gltfModel.position.y = -0.32 * (p / 0.22);
+        } else if (p < 0.78) {
+          const rollPhase = (p - 0.22) / 0.56;
+          this.gltfModel.position.y = -0.32 + Math.sin(rollPhase * Math.PI) * 0.08;
+          this.gltfModel.rotation.x = rollPhase * Math.PI * 2;
+        } else {
+          this.gltfModel.position.y = -0.32 * (1 - (p - 0.78) / 0.22);
+        }
+      } else {
+        this.gltfModel.rotation.y = facesViewer ? -0.94 : sideFacing;
+        this.gltfModel.position.y = bounce;
+      }
+
+      this.balls.forEach((ball) => {
+        ball.visible = ["idle", "sleeping", "sit"].includes(frame.behavior);
+      });
+      if (frame.behavior === "fetch") {
+        this.fetchBall.visible = true;
+        (this.fetchBall.material as THREE.MeshStandardMaterial).color.set(frame.ballColor);
+        if (frame.progress < 0.6) {
+          const flight = frame.progress / 0.6;
+          this.fetchBall.position.set(-2.1 + flight * 4.1, 0.25 + Math.sin(flight * Math.PI) * 1.65, 0.45);
+        } else {
+          this.fetchBall.position.set(1.75, 1.34, 0.18);
+        }
+      } else {
+        this.fetchBall.visible = false;
+      }
+      if (frame.behavior === "feed") {
+        this.foodBowl.visible = true;
+      } else {
+        this.foodBowl.visible = false;
+      }
+      if (frame.behavior === "treat") {
+        this.treat.visible = true;
+      } else {
+        this.treat.visible = false;
+      }
+
+      this.renderer.render(this.scene, this.camera);
+      return;
+    }
+
     const gaitSpeed =
       frame.behavior === "walking"
         ? 7
@@ -381,6 +463,16 @@ export class ThreePetRenderer {
   }
 
   dispose(): void {
+    if (this.mixer) {
+      this.mixer.stopAllAction();
+      this.mixer = null;
+    }
+    this.actions.clear();
+    this.currentAction = null;
+    if (this.gltfModel) {
+      this.scene.remove(this.gltfModel);
+      this.gltfModel = null;
+    }
     this.scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh || object instanceof THREE.LineSegments)) return;
       object.geometry.dispose();
@@ -388,6 +480,129 @@ export class ThreePetRenderer {
       materials.forEach((material) => material.dispose());
     });
     this.renderer.dispose();
+  }
+
+  async loadGLTFModel(url: string): Promise<boolean> {
+    const loader = new GLTFLoader();
+    try {
+      const gltf = await loader.loadAsync(url);
+      if (this.gltfModel) {
+        this.scene.remove(this.gltfModel);
+        this.gltfModel = null;
+      }
+      if (this.mixer) {
+        this.mixer.stopAllAction();
+        this.mixer = null;
+      }
+      this.actions.clear();
+      this.currentAction = null;
+
+      this.gltfModel = gltf.scene;
+
+      const box = new THREE.Box3().setFromObject(this.gltfModel);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const scale = 2.45 / (maxDim || 1);
+      this.gltfModel.scale.setScalar(scale);
+
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      this.gltfModel.position.set(-center.x * scale, -box.min.y * scale - 0.04, -center.z * scale);
+
+      this.gltfModel.traverse((node) => {
+        if (node instanceof THREE.Mesh) {
+          node.castShadow = true;
+          node.receiveShadow = true;
+          if (node.material instanceof THREE.MeshStandardMaterial) {
+            node.material.roughness = Math.min(node.material.roughness, 0.85);
+          }
+        }
+      });
+
+      if (gltf.animations && gltf.animations.length > 0) {
+        this.mixer = new THREE.AnimationMixer(this.gltfModel);
+        for (const clip of gltf.animations) {
+          const action = this.mixer.clipAction(clip);
+          const nameLower = clip.name.toLowerCase();
+          this.actions.set(clip.name, action);
+          this.actions.set(nameLower, action);
+
+          if (nameLower.includes("idle") || nameLower.includes("stand") || clip.name === "Animation") {
+            this.actions.set("idle", action);
+          }
+          if (nameLower.includes("walk")) {
+            this.actions.set("walking", action);
+          }
+          if (nameLower.includes("run") || nameLower.includes("trot") || nameLower.includes("gallop")) {
+            this.actions.set("running", action);
+            this.actions.set("chasing", action);
+          }
+          if (nameLower.includes("sit")) {
+            this.actions.set("sit", action);
+          }
+          if (nameLower.includes("down") || nameLower.includes("lie")) {
+            this.actions.set("down", action);
+            this.actions.set("sleeping", action);
+          }
+          if (nameLower.includes("roll")) {
+            this.actions.set("roll-over", action);
+          }
+          if (nameLower.includes("bark") || nameLower.includes("speak")) {
+            this.actions.set("speak", action);
+          }
+          if (nameLower.includes("jump")) {
+            this.actions.set("jump", action);
+          }
+        }
+
+        const initial = this.actions.get("idle") ?? this.actions.values().next().value;
+        if (initial) {
+          initial.play();
+          this.currentAction = initial;
+        }
+      }
+
+      this.scene.add(this.gltfModel);
+      this.root.visible = false;
+      this.isModelLoaded = true;
+      return true;
+    } catch (err) {
+      console.info("Using procedural Golden Retriever fallback:", err);
+      if (this.gltfModel) {
+        this.scene.remove(this.gltfModel);
+        this.gltfModel = null;
+      }
+      this.root.visible = true;
+      this.isModelLoaded = false;
+      return false;
+    }
+  }
+
+  private updateGLTFBehavior(behavior: string): void {
+    if (!this.mixer || this.currentBehaviorName === behavior) return;
+    this.currentBehaviorName = behavior;
+
+    let targetAction = this.actions.get(behavior);
+    if (!targetAction) {
+      if (["running", "chasing"].includes(behavior)) {
+        targetAction = this.actions.get("walking") ?? this.actions.get("idle");
+      } else if (["handshake", "hi-five", "salute", "namaste"].includes(behavior)) {
+        targetAction = this.actions.get("sit") ?? this.actions.get("idle");
+      } else if (behavior === "sleeping") {
+        targetAction = this.actions.get("down") ?? this.actions.get("idle");
+      } else {
+        targetAction = this.actions.get("idle");
+      }
+    }
+
+    if (targetAction && targetAction !== this.currentAction) {
+      targetAction.reset().fadeIn(0.24).play();
+      if (this.currentAction) {
+        this.currentAction.fadeOut(0.24);
+      }
+      this.currentAction = targetAction;
+    }
   }
 
   private buildBody(): void {
