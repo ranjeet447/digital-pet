@@ -59,7 +59,8 @@ type Behavior =
   | "feed"
   | "treat"
   | "surprise"
-  | "ask-food";
+  | "ask-food"
+  | "wag";
 
 type Point = { x: number; y: number };
 
@@ -389,9 +390,84 @@ template.innerHTML = `
       }
     }
 
-    @media print {
-      :host {
-        display: none !important;
+    .particle {
+      position: fixed;
+      pointer-events: none;
+      font-size: 22px;
+      user-select: none;
+      will-change: transform, opacity;
+      animation: petParticleFloat 1.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      z-index: 2147483002;
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.22));
+    }
+
+    @keyframes petParticleFloat {
+      0% {
+        opacity: 0;
+        transform: translate3d(var(--x), var(--y), 0) scale(0.4) rotate(var(--rot-start));
+      }
+      18% {
+        opacity: 1;
+        transform: translate3d(var(--x), calc(var(--y) - 18px), 0) scale(1.25) rotate(var(--rot-mid));
+      }
+      100% {
+        opacity: 0;
+        transform: translate3d(calc(var(--x) + var(--drift)), calc(var(--y) - 68px), 0) scale(0.85) rotate(var(--rot-end));
+      }
+    }
+
+    .fetch-ball-element {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 32%, #ecff5e 0%, #b8e314 55%, #769b00 100%);
+      box-shadow: inset -2px -2px 5px rgba(0,0,0,0.32), 0 6px 14px rgba(0,0,0,0.28);
+      pointer-events: none;
+      z-index: 2147483001;
+      will-change: transform, opacity;
+      transition: opacity 0.35s ease;
+    }
+
+    .fetch-ball-element::after {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      border-radius: 50%;
+      border: 1.5px dashed rgba(255, 255, 255, 0.75);
+      box-sizing: border-box;
+    }
+
+    .fetch-prompt-toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      background: rgba(36, 22, 12, 0.92);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      padding: 9px 20px;
+      border-radius: 999px;
+      font: 600 13px/1.3 ui-sans-serif, system-ui, sans-serif;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.25);
+      pointer-events: none;
+      z-index: 2147483003;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: promptFadeIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    @keyframes promptFadeIn {
+      from {
+        opacity: 0;
+        transform: translate(-50%, 12px) scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: translate(-50%, 0) scale(1);
       }
     }
   </style>
@@ -488,6 +564,16 @@ export class DigitalPetElement extends HTMLElement {
   private rendererValue: DigitalPetRenderer = "2d";
   private hunger = 18;
   private lastHungerUpdate = performance.now();
+  private isInteractiveFetchActive = false;
+  private fetchPhase: "idle" | "chasing" | "returning" = "idle";
+  private fetchReturnPoint: Point = { x: 0, y: 0 };
+  private fetchBallElement: HTMLElement | null = null;
+  private fetchPromptElement: HTMLElement | null = null;
+  private fetchTimeoutTimer: number | null = null;
+  private carryingBall = false;
+  private lastPetParticleTime = 0;
+  private lastPetSoundTime = 0;
+  private isCurrentlyPetting = false;
 
   constructor() {
     super();
@@ -529,6 +615,7 @@ export class DigitalPetElement extends HTMLElement {
     this.applyCanvasSize();
 
     window.addEventListener("pointermove", this.handleGlobalPointerMove, { passive: true });
+    window.addEventListener("pointerdown", this.handleGlobalPointerDown, { passive: true });
     window.addEventListener("resize", this.handleResize, { passive: true });
     document.addEventListener("visibilitychange", this.handleVisibilityChange);
     this.reducedMotion.addEventListener("change", this.handleReducedMotionChange);
@@ -543,9 +630,11 @@ export class DigitalPetElement extends HTMLElement {
     this.connected = false;
     cancelAnimationFrame(this.animationFrame);
     window.removeEventListener("pointermove", this.handleGlobalPointerMove);
+    window.removeEventListener("pointerdown", this.handleGlobalPointerDown);
     window.removeEventListener("resize", this.handleResize);
     document.removeEventListener("visibilitychange", this.handleVisibilityChange);
     this.reducedMotion.removeEventListener("change", this.handleReducedMotionChange);
+    this.cancelInteractiveFetchPrompt();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     this.threeRenderer?.dispose();
@@ -640,10 +729,11 @@ export class DigitalPetElement extends HTMLElement {
         this.say("Surprise!");
         this.playBark("excited");
         break;
+      case "fetch":
+        this.ballColor = BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)];
+        this.startInteractiveFetch();
+        break;
       default:
-        if (command === "fetch") {
-          this.ballColor = BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)];
-        }
         this.setTimedBehavior(command, TRICK_DURATION[command] ?? 2400);
         this.say(COMMAND_LABELS[command] + "!");
         if (command === "speak") this.playBark("speak");
@@ -656,6 +746,26 @@ export class DigitalPetElement extends HTMLElement {
         detail: { command },
       }),
     );
+  }
+
+  get renderer3D(): ThreePetRenderer | null {
+    return this.threeRenderer;
+  }
+
+  get isPetting(): boolean {
+    return this.isCurrentlyPetting;
+  }
+
+  get currentFetchPhase(): string {
+    return this.fetchPhase;
+  }
+
+  get isBallCarried(): boolean {
+    return this.carryingBall;
+  }
+
+  get currentPosition(): Point {
+    return { ...this.position };
   }
 
   randomTrick(): void {
@@ -1065,6 +1175,164 @@ export class DigitalPetElement extends HTMLElement {
     this.pointerMovedAt = performance.now();
   };
 
+  private readonly handleGlobalPointerDown = (event: PointerEvent): void => {
+    if (!this.isInteractiveFetchActive) return;
+    const path = event.composedPath();
+    if (path.includes(this.panel) || path.includes(this.launcher) || path.includes(this.canvas)) {
+      return;
+    }
+    this.throwFetchBall(event.clientX, event.clientY);
+  };
+
+  private startInteractiveFetch(): void {
+    if (this.isInteractiveFetchActive) return;
+    this.isInteractiveFetchActive = true;
+    this.fetchReturnPoint = { ...this.position };
+    this.say("Throw the ball! 🎾");
+    this.playBark("excited");
+    this.setBehavior("wag");
+
+    if (this.shadowRoot && !this.fetchPromptElement) {
+      const toast = document.createElement("div");
+      toast.className = "fetch-prompt-toast";
+      toast.innerHTML = "<span>🎾</span><span>Click anywhere on the screen to throw the ball!</span>";
+      this.shadowRoot.appendChild(toast);
+      this.fetchPromptElement = toast;
+    }
+
+    if (this.fetchTimeoutTimer) window.clearTimeout(this.fetchTimeoutTimer);
+    this.fetchTimeoutTimer = window.setTimeout(() => {
+      if (this.isInteractiveFetchActive) {
+        const throwX = clamp(this.position.x + (this.direction > 0 ? 300 : -300), 80, window.innerWidth - 80);
+        const throwY = clamp(this.position.y + 20, 80, window.innerHeight - 120);
+        this.throwFetchBall(throwX, throwY);
+      }
+    }, 10000);
+  }
+
+  private cancelInteractiveFetchPrompt(): void {
+    this.isInteractiveFetchActive = false;
+    if (this.fetchTimeoutTimer) {
+      window.clearTimeout(this.fetchTimeoutTimer);
+      this.fetchTimeoutTimer = null;
+    }
+    if (this.fetchPromptElement) {
+      this.fetchPromptElement.remove();
+      this.fetchPromptElement = null;
+    }
+  }
+
+  private throwFetchBall(targetX: number, targetY: number): void {
+    this.cancelInteractiveFetchPrompt();
+    if (this.fetchBallElement) {
+      this.fetchBallElement.remove();
+      this.fetchBallElement = null;
+    }
+
+    const startX = this.position.x + (this.direction > 0 ? this.displayWidth * 0.7 : this.displayWidth * 0.3);
+    const startY = this.position.y + this.displayHeight * 0.45;
+
+    const ball = document.createElement("div");
+    ball.className = "fetch-ball-element";
+    this.shadowRoot?.appendChild(ball);
+    this.fetchBallElement = ball;
+
+    const landingX = clamp(targetX - 13, 20, window.innerWidth - 46);
+    const landingY = clamp(targetY - 13, 20, window.innerHeight - 46);
+
+    const midX = (startX + landingX) / 2;
+    const midY = Math.min(startY, landingY) - 130;
+
+    ball.animate(
+      [
+        { transform: `translate3d(${startX}px, ${startY}px, 0) scale(0.85)` },
+        { transform: `translate3d(${midX}px, ${midY}px, 0) scale(1.2)`, offset: 0.5 },
+        { transform: `translate3d(${landingX}px, ${landingY}px, 0) scale(1.0)`, offset: 0.8 },
+        { transform: `translate3d(${landingX}px, ${landingY - 26}px, 0) scale(0.95)`, offset: 0.9 },
+        { transform: `translate3d(${landingX}px, ${landingY}px, 0) scale(1.0)`, offset: 1.0 },
+      ],
+      {
+        duration: 650,
+        easing: "cubic-bezier(0.25, 0.8, 0.25, 1)",
+        fill: "forwards",
+      },
+    );
+
+    this.say("Got it!");
+    this.playBark("happy");
+    this.fetchPhase = "chasing";
+    this.targetPosition = {
+      x: clamp(landingX - this.displayWidth / 2 + 13, 0, Math.max(0, window.innerWidth - this.displayWidth)),
+      y: clamp(landingY - this.displayHeight / 2 + 13, 0, Math.max(0, window.innerHeight - this.displayHeight - FLOOR_MARGIN)),
+    };
+    this.setBehavior("running");
+  }
+
+  private spawnDroppedBall(): void {
+    const ball = document.createElement("div");
+    ball.className = "fetch-ball-element";
+    this.shadowRoot?.appendChild(ball);
+
+    const dropX = this.position.x + (this.direction > 0 ? this.displayWidth * 0.72 : this.displayWidth * 0.28);
+    const dropY = this.position.y + this.displayHeight * 0.65;
+
+    ball.animate(
+      [
+        { transform: `translate3d(${dropX}px, ${dropY - 24}px, 0) scale(0.9)` },
+        { transform: `translate3d(${dropX}px, ${dropY}px, 0) scale(1.15, 0.85)`, offset: 0.4 },
+        { transform: `translate3d(${dropX}px, ${dropY - 12}px, 0) scale(1.0)`, offset: 0.7 },
+        { transform: `translate3d(${dropX}px, ${dropY}px, 0) scale(1.0)`, offset: 1.0 },
+      ],
+      {
+        duration: 500,
+        easing: "ease-out",
+        fill: "forwards",
+      },
+    );
+
+    window.setTimeout(() => {
+      ball.style.opacity = "0";
+      window.setTimeout(() => ball.remove(), 400);
+    }, 2800);
+  }
+
+  private handlePetting(now: number): void {
+    if (this.lastPetParticleTime === 0 || Math.abs(now - this.lastPetParticleTime) > 180) {
+      this.lastPetParticleTime = now;
+      this.spawnPetParticle();
+    }
+    if (this.lastPetSoundTime === 0 || Math.abs(now - this.lastPetSoundTime) > 4000) {
+      this.lastPetSoundTime = now;
+      this.playBark("happy");
+    }
+  }
+
+  private spawnPetParticle(): void {
+    if (!this.shadowRoot) return;
+    const symbols = ["💖", "✨", "🐾", "💕", "⭐", "🥰"];
+    const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+    const particle = document.createElement("div");
+    particle.className = "particle";
+    particle.textContent = symbol;
+
+    const spawnX = this.position.x + this.displayWidth * 0.35 + (Math.random() - 0.5) * (this.displayWidth * 0.45);
+    const spawnY = this.position.y + this.displayHeight * 0.35 + (Math.random() - 0.5) * (this.displayHeight * 0.3);
+    const drift = (Math.random() - 0.5) * 44;
+    const rotStart = (Math.random() - 0.5) * 20;
+    const rotMid = (Math.random() - 0.5) * 35;
+    const rotEnd = (Math.random() - 0.5) * 50;
+
+    particle.style.setProperty("--x", `${spawnX}px`);
+    particle.style.setProperty("--y", `${spawnY}px`);
+    particle.style.setProperty("--drift", `${drift}px`);
+    particle.style.setProperty("--rot-start", `${rotStart}deg`);
+    particle.style.setProperty("--rot-mid", `${rotMid}deg`);
+    particle.style.setProperty("--rot-end", `${rotEnd}deg`);
+
+    this.shadowRoot.appendChild(particle);
+    window.setTimeout(() => particle.remove(), 1300);
+  }
+
   private readonly handlePointerDown = (event: PointerEvent): void => {
     this.dragging = true;
     this.didDrag = false;
@@ -1126,6 +1394,33 @@ export class DigitalPetElement extends HTMLElement {
       this.update(now, deltaSeconds);
       this.facingScale = damp(this.facingScale, this.direction, 12, deltaSeconds);
       this.renderedBounce = damp(this.renderedBounce, this.bodyBounce(now / 1000), 16, deltaSeconds);
+
+      const centerX = this.position.x + this.displayWidth / 2;
+      const centerY = this.position.y + this.displayHeight / 2;
+      const diffX = this.pointer.x - centerX;
+      const diffY = this.pointer.y - centerY;
+      const pointerDistance = Math.hypot(diffX, diffY);
+      const hasPointer = this.pointer.x >= 0 && this.pointer.y >= 0;
+      const pointerAngleX = hasPointer ? clamp(diffX / Math.max(1, this.displayWidth * 0.85), -1.2, 1.2) : 0;
+      const pointerAngleY = hasPointer ? clamp(diffY / Math.max(1, this.displayHeight * 0.85), -1.2, 1.2) : 0;
+
+      const pointerMoving =
+        Math.abs(performance.now() - this.pointerMovedAt) < 800 ||
+        (this.pointerMovedAt > 0 && Math.abs(now - this.pointerMovedAt) < 800);
+      const isPetting = (
+        hasPointer &&
+        pointerDistance < this.displayWidth * 0.55 &&
+        pointerMoving &&
+        !this.dragging &&
+        this.fetchPhase === "idle" &&
+        ["idle", "sit", "quiet", "ask-food", "handshake", "hi-five", "wag"].includes(this.behavior)
+      );
+      this.isCurrentlyPetting = isPetting;
+
+      if (isPetting) {
+        this.handlePetting(now);
+      }
+
       if (this.threeRenderer) {
         this.threeRenderer.render({
           behavior: this.behavior,
@@ -1134,6 +1429,11 @@ export class DigitalPetElement extends HTMLElement {
           facing: this.facingScale,
           ballColor: this.ballColor,
           reducedMotion: this.reducedMotion.matches,
+          pointerDistance,
+          pointerAngleX,
+          pointerAngleY,
+          isPetting,
+          carryingBall: this.carryingBall,
         });
       } else {
         this.draw(now / 1000);
@@ -1150,13 +1450,15 @@ export class DigitalPetElement extends HTMLElement {
 
     if (this.behaviorEndsAt !== null && now >= this.behaviorEndsAt) {
       this.behaviorEndsAt = null;
-      this.setBehavior("idle");
-      this.nextDecisionAt = now + randomBetween(3000, 7000);
+      if (this.fetchPhase === "idle") {
+        this.setBehavior("idle");
+        this.nextDecisionAt = now + randomBetween(3000, 7000);
+      }
     }
 
     if (!this.reducedMotion.matches) {
       if (this.behavior === "walking") this.updateMovement(deltaSeconds, 60);
-      if (this.behavior === "running") this.updateMovement(deltaSeconds, 132);
+      if (this.behavior === "running") this.updateMovement(deltaSeconds, this.fetchPhase !== "idle" ? 280 : 132);
       if (this.behavior === "chasing") this.updateChase(deltaSeconds);
       this.updateCursorReaction(now);
     }
@@ -1164,6 +1466,7 @@ export class DigitalPetElement extends HTMLElement {
     if (
       now >= this.nextDecisionAt &&
       this.behaviorEndsAt === null &&
+      this.fetchPhase === "idle" &&
       !["chasing", "sleeping"].includes(this.behavior)
     ) {
       this.chooseAutonomousBehavior();
@@ -1171,7 +1474,7 @@ export class DigitalPetElement extends HTMLElement {
   }
 
   private updateCursorReaction(now: number): void {
-    if (!this.cursorInteractionEnabled || this.dragging) return;
+    if (!this.cursorInteractionEnabled || this.dragging || this.fetchPhase !== "idle" || this.isCurrentlyPetting) return;
 
     const centerX = this.position.x + this.displayWidth / 2;
     const centerY = this.position.y + this.displayHeight / 2;
@@ -1180,7 +1483,7 @@ export class DigitalPetElement extends HTMLElement {
 
     if (distance < 240 && !["sleeping", "down"].includes(this.behavior) && this.behaviorEndsAt === null) {
       this.direction = this.pointer.x < centerX ? -1 : 1;
-      if (pointerIsMoving && distance > 80) {
+      if (pointerIsMoving && distance > this.displayWidth * 0.55) {
         this.setBehavior("chasing");
       } else if (this.behavior === "chasing") {
         this.setBehavior("idle");
@@ -1198,6 +1501,38 @@ export class DigitalPetElement extends HTMLElement {
     const diffX = this.targetPosition.x - this.position.x;
     const diffY = this.targetPosition.y - this.position.y;
     const distance = Math.hypot(diffX, diffY);
+
+    if (this.fetchPhase === "chasing" && distance < 48) {
+      if (this.fetchBallElement) {
+        this.fetchBallElement.remove();
+        this.fetchBallElement = null;
+      }
+      this.carryingBall = true;
+      this.fetchPhase = "returning";
+      this.say("Got the ball! 🎾");
+      this.playBark("happy");
+      this.targetPosition = { ...this.fetchReturnPoint };
+      this.setBehavior("running");
+      return;
+    }
+
+    if (this.fetchPhase === "returning" && distance < 48) {
+      this.carryingBall = false;
+      this.fetchPhase = "idle";
+      this.position.x = this.targetPosition.x;
+      this.position.y = this.targetPosition.y;
+      this.targetPosition = null;
+      this.horizontalVelocity = 0;
+      this.verticalVelocity = 0;
+      this.spawnDroppedBall();
+      this.setBehavior("wag");
+      this.behaviorEndsAt = performance.now() + 3500;
+      this.say("Good boy! 🎾");
+      this.playBark("happy");
+      this.nextDecisionAt = performance.now() + 5000;
+      return;
+    }
+
     if (distance < 5) {
       this.position.x = this.targetPosition.x;
       this.position.y = this.targetPosition.y;
@@ -1277,9 +1612,7 @@ export class DigitalPetElement extends HTMLElement {
   private startAutonomousPlay(command: Extract<DigitalPetCommand, "fetch" | "speak" | "surprise">): void {
     if (command === "fetch") {
       this.ballColor = BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)];
-      this.setTimedBehavior("fetch", TRICK_DURATION.fetch ?? 3200);
-      this.say("Ball!");
-      this.playBark("excited");
+      this.startInteractiveFetch();
       return;
     }
 

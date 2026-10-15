@@ -8,6 +8,11 @@ export interface ThreePetFrame {
   facing: number;
   ballColor: string;
   reducedMotion: boolean;
+  pointerDistance?: number;
+  pointerAngleX?: number;
+  pointerAngleY?: number;
+  isPetting?: boolean;
+  carryingBall?: boolean;
 }
 
 type LegRig = {
@@ -76,6 +81,10 @@ function smoothDamp(current: number, target: number, speed: number, dt: number):
   return target + (current - target) * Math.exp(-speed * dt);
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
 export class ThreePetRenderer {
   private readonly baseFur = createBaseFurTexture();
   private readonly furNoise = createFurNoiseTexture();
@@ -87,6 +96,10 @@ export class ThreePetRenderer {
   private currentActionName = "";
   private dogMesh: THREE.SkinnedMesh | null = null;
   private currentModelRotationY = 0.45;
+  private currentHeadYaw = 0;
+  private currentHeadPitch = 0;
+  private earSpringAngles: [number, number] = [0, 0];
+  private earSpringVelocities: [number, number] = [0, 0];
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(40, 220 / 180, 0.1, 50);
@@ -271,6 +284,22 @@ export class ThreePetRenderer {
     this.scene.add(this.treat);
   }
 
+  get headYaw(): number {
+    return this.currentHeadYaw;
+  }
+
+  get headPitch(): number {
+    return this.currentHeadPitch;
+  }
+
+  get earSprings(): [number, number] {
+    return [this.earSpringAngles[0], this.earSpringAngles[1]];
+  }
+
+  get isGLTFModelLoaded(): boolean {
+    return this.isModelLoaded;
+  }
+
   render(frame: ThreePetFrame): void {
     this.resetPose();
 
@@ -308,7 +337,19 @@ export class ThreePetRenderer {
         targetClip = "wag";
       }
 
+      // Feature 2: Petting reaction - rapid joyful wag and relaxed pose
+      if (frame.isPetting) {
+        targetClip = "wag";
+      }
+
       this.playAction(targetClip, 0.22);
+      if (this.currentActionName === "wag" && frame.isPetting) {
+        const wagAction = this.animationActions.get("wag");
+        if (wagAction) wagAction.setEffectiveTimeScale(2.4);
+      } else {
+        const action = this.animationActions.get(this.currentActionName);
+        if (action) action.setEffectiveTimeScale(1.0);
+      }
       this.mixer.update(dt);
 
       // Natural canine facing angle in beauty view
@@ -336,10 +377,67 @@ export class ThreePetRenderer {
         this.gltfModel.position.y = 0;
       }
 
-      // Additive trick bone adjustments for front paws & head
+      // Feature 1: Realistic head tracking (eye contact with cursor)
+      const canTrackHead = !["sleeping", "down", "roll-over"].includes(frame.behavior);
+      let targetHeadYaw = 0;
+      let targetHeadPitch = 0;
+
+      if (canTrackHead && frame.pointerAngleX !== undefined && frame.pointerAngleY !== undefined) {
+        if (frame.isPetting) {
+          targetHeadYaw = 0;
+          targetHeadPitch = -0.16; // Chin lifts slightly into scratching hand
+        } else {
+          const facingSign = frame.facing >= 0 ? 1 : -1;
+          targetHeadYaw = clamp(frame.pointerAngleX * 0.42 * facingSign, -0.42, 0.42);
+          targetHeadPitch = clamp(-frame.pointerAngleY * 0.30, -0.28, 0.26);
+        }
+      }
+
+      this.currentHeadYaw = smoothDamp(this.currentHeadYaw, targetHeadYaw, 8.5, dt);
+      this.currentHeadPitch = smoothDamp(this.currentHeadPitch, targetHeadPitch, 8.5, dt);
+
+      // Feature 4: Floppy ear spring physics & petting relaxation
+      const gaitCadence = frame.behavior === "walking" ? 6.2 : ["running", "chasing"].includes(frame.behavior) ? 11.5 : 0;
+      const gaitEarBob = gaitCadence > 0 ? Math.sin(frame.time * gaitCadence) * 0.12 : 0;
+      const turnSway = Math.sin(frame.time * 2.5) * 0.04;
+
+      let targetEarL = gaitEarBob + turnSway;
+      let targetEarR = -gaitEarBob - turnSway;
+
+      if (frame.isPetting) {
+        targetEarL += 0.22; // Ears fold back in bliss
+        targetEarR += 0.22;
+      }
+
+      const springK = 26.0;
+      const damping = 4.6;
+      const accL = (targetEarL - this.earSpringAngles[0]) * springK - this.earSpringVelocities[0] * damping;
+      const accR = (targetEarR - this.earSpringAngles[1]) * springK - this.earSpringVelocities[1] * damping;
+      this.earSpringVelocities[0] += accL * dt;
+      this.earSpringVelocities[1] += accR * dt;
+      this.earSpringAngles[0] += this.earSpringVelocities[0] * dt;
+      this.earSpringAngles[1] += this.earSpringVelocities[1] * dt;
+
+      // Additive bone adjustments for front paws, head, and floppy ears
       const frontPawR = this.gltfBones.get("front_upper_R");
       const frontPawL = this.gltfBones.get("front_upper_L");
       const head = this.gltfBones.get("head");
+      const earL = this.gltfBones.get("ear_L");
+      const earR = this.gltfBones.get("ear_R");
+
+      if (head) {
+        head.rotation.y += this.currentHeadYaw;
+        head.rotation.x += this.currentHeadPitch;
+      }
+
+      if (earL && earR) {
+        earL.rotation.x += this.earSpringAngles[0];
+        earR.rotation.x += this.earSpringAngles[1];
+        if (frame.isPetting) {
+          earL.rotation.z += 0.18;
+          earR.rotation.z -= 0.18;
+        }
+      }
 
       if (frame.behavior === "handshake" && frontPawR) {
         frontPawR.rotation.x += 0.85;
@@ -358,14 +456,14 @@ export class ThreePetRenderer {
       }
 
       // Interactive props (fetch ball, food bowl, treat)
-      if (frame.behavior === "fetch") {
+      if (frame.carryingBall || frame.behavior === "fetch") {
         this.fetchBall.visible = true;
         (this.fetchBall.material as THREE.MeshStandardMaterial).color.set(frame.ballColor);
-        if (frame.progress < 0.6) {
+        if (frame.carryingBall || frame.progress >= 0.6) {
+          this.fetchBall.position.set(0.12, 0.38, 0.52);
+        } else {
           const flight = frame.progress / 0.6;
           this.fetchBall.position.set(-0.9 + flight * 1.4, 0.15 + Math.sin(flight * Math.PI) * 0.8, 0.4 + flight * 0.3);
-        } else {
-          this.fetchBall.position.set(0.12, 0.38, 0.52);
         }
       } else {
         this.fetchBall.visible = false;
@@ -592,24 +690,39 @@ export class ThreePetRenderer {
             const newMats = mats.map((m) => {
               const name = m.name;
               if (name === "Fur") {
-                return new THREE.MeshStandardMaterial({
+                return new THREE.MeshPhysicalMaterial({
                   color: 0xd9822b, // warm golden retriever amber coat
-                  roughness: 0.65,
+                  roughness: 0.72,
                   metalness: 0.0,
+                  bumpMap: this.furNoise,
+                  bumpScale: 0.005,
+                  sheen: 0.85,
+                  sheenColor: 0xffdfaa,
+                  sheenRoughness: 0.42,
                 });
               }
               if (name === "Light") {
-                return new THREE.MeshStandardMaterial({
+                return new THREE.MeshPhysicalMaterial({
                   color: 0xf6dfbe, // soft cream chest feathering & paw socks
-                  roughness: 0.7,
+                  roughness: 0.76,
                   metalness: 0.0,
+                  bumpMap: this.furNoise,
+                  bumpScale: 0.004,
+                  sheen: 0.70,
+                  sheenColor: 0xfff4db,
+                  sheenRoughness: 0.45,
                 });
               }
               if (name === "Ear") {
-                return new THREE.MeshStandardMaterial({
+                return new THREE.MeshPhysicalMaterial({
                   color: 0xb5631b, // velvety honey-golden ears
-                  roughness: 0.65,
+                  roughness: 0.70,
                   metalness: 0.0,
+                  bumpMap: this.furNoise,
+                  bumpScale: 0.005,
+                  sheen: 0.90,
+                  sheenColor: 0xdc9258,
+                  sheenRoughness: 0.38,
                 });
               }
               if (name === "Ink") {
@@ -1482,6 +1595,13 @@ export class ThreePetRenderer {
         break;
       default:
         break;
+    }
+
+    if (frame.carryingBall) {
+      this.tongue.visible = true;
+      this.fetchBall.visible = true;
+      (this.fetchBall.material as THREE.MeshStandardMaterial).color.set(frame.ballColor);
+      this.fetchBall.position.set(1.75, 1.34, 0.18);
     }
   }
 
