@@ -1,4 +1,6 @@
-import { ThreePetRenderer } from "./three-renderer.js";
+import { ThreePetRenderer, DogBreed, BreedProfile, DOG_BREEDS } from "./three-renderer.js";
+
+export { DogBreed, BreedProfile, DOG_BREEDS } from "./three-renderer.js";
 
 export const DIGITAL_PET_COMMANDS = [
   "sit",
@@ -38,6 +40,7 @@ export interface DigitalPetOptions {
   zIndex?: number;
   startCorner?: "bottom-left" | "bottom-right";
   modelSrc?: string;
+  breed?: DogBreed;
 }
 
 type Behavior =
@@ -377,6 +380,40 @@ template.innerHTML = `
       accent-color: #a95e24;
     }
 
+    .breeds {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    .breed-btn {
+      min-height: 32px;
+      border: 1px solid #ead8c4;
+      border-radius: 9px;
+      background: #fff;
+      color: #3b291d;
+      cursor: pointer;
+      font: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 4px;
+      text-align: center;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    }
+
+    .breed-btn:hover {
+      background: #fbf5ed;
+      border-color: #cb7a38;
+      color: #76451e;
+    }
+
+    .breed-btn.is-active,
+    .breed-btn[aria-pressed="true"] {
+      background: #76451e;
+      border-color: #76451e;
+      color: #fff;
+    }
+
     :host([controls="false"]) .launcher,
     :host([controls="false"]) .panel,
     :host([hidden]) {
@@ -490,6 +527,15 @@ template.innerHTML = `
       <button class="renderer" type="button" data-renderer="2d" aria-pressed="false">2D illustrated</button>
       <button class="renderer" type="button" data-renderer="3d" aria-pressed="false">3D model</button>
     </div>
+    <div class="section-title">Breed</div>
+    <div class="breeds">
+      <button class="breed-btn" type="button" data-breed="golden-retriever" aria-pressed="true">Golden Retriever</button>
+      <button class="breed-btn" type="button" data-breed="black-labrador" aria-pressed="false">Black Lab</button>
+      <button class="breed-btn" type="button" data-breed="chocolate-labrador" aria-pressed="false">Chocolate Lab</button>
+      <button class="breed-btn" type="button" data-breed="husky" aria-pressed="false">Siberian Husky</button>
+      <button class="breed-btn" type="button" data-breed="german-shepherd" aria-pressed="false">German Shepherd</button>
+      <button class="breed-btn" type="button" data-breed="shiba-inu" aria-pressed="false">Shiba Inu</button>
+    </div>
     <div class="section-title">Sound</div>
     <div class="sound-row">
       <button class="sound-toggle" type="button" aria-pressed="false">Enable sounds</button>
@@ -521,7 +567,7 @@ export class DigitalPetElement extends HTMLElement {
   static readonly tagName = "digital-pet";
 
   static get observedAttributes(): string[] {
-    return ["name", "size", "controls", "cursor-interaction", "z-index", "sound", "volume", "renderer", "model-src"];
+    return ["name", "size", "controls", "cursor-interaction", "z-index", "sound", "volume", "renderer", "model-src", "breed"];
   }
 
   private canvas: HTMLCanvasElement;
@@ -535,6 +581,7 @@ export class DigitalPetElement extends HTMLElement {
   private readonly reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   private readonly barkAudio = new Audio(new URL("../assets/bark-cute.mp3", import.meta.url).href);
   private threeRenderer: ThreePetRenderer | null = null;
+  private currentBreed: DogBreed = "golden-retriever";
   private animationFrame = 0;
   private lastFrame = performance.now();
   private nextDecisionAt = performance.now() + 4500;
@@ -611,6 +658,11 @@ export class DigitalPetElement extends HTMLElement {
     this.sizeValue = this.readInitialSize();
     this.setAttribute("size", this.sizeValue);
     this.syncSizeButtons();
+    const initialBreed = this.getAttribute("breed") as DogBreed;
+    if (initialBreed && DOG_BREEDS[initialBreed]) {
+      this.currentBreed = initialBreed;
+    }
+    this.updateBreedButtons();
     this.placeInStartCorner();
     this.applyCanvasSize();
 
@@ -677,6 +729,9 @@ export class DigitalPetElement extends HTMLElement {
       if (modelUrl && modelUrl !== "procedural" && modelUrl !== "none") {
         void this.threeRenderer.loadGLTFModel(modelUrl);
       }
+    }
+    if (name === "breed" && newValue && newValue !== _oldValue) {
+      this.setBreed(newValue as DogBreed);
     }
   }
 
@@ -827,6 +882,43 @@ export class DigitalPetElement extends HTMLElement {
       return;
     }
     this.setAttribute("renderer", renderer);
+  }
+
+  get breed(): DogBreed {
+    return this.currentBreed;
+  }
+
+  set breed(value: DogBreed) {
+    this.setBreed(value);
+  }
+
+  setBreed(breed: DogBreed): void {
+    if (!DOG_BREEDS[breed]) return;
+    this.currentBreed = breed;
+    if (this.getAttribute("breed") !== breed) {
+      this.setAttribute("breed", breed);
+    }
+    this.updateBreedButtons();
+    if (this.threeRenderer) {
+      this.threeRenderer.setBreed(breed);
+    }
+    this.dispatchEvent(
+      new CustomEvent("digital-pet-breed-change", {
+        detail: { breed, profile: DOG_BREEDS[breed] },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private updateBreedButtons(): void {
+    const breedButtons = this.shadowRoot?.querySelectorAll<HTMLButtonElement>("[data-breed]");
+    if (!breedButtons) return;
+    for (const btn of breedButtons) {
+      const isCurrent = btn.dataset.breed === this.currentBreed;
+      btn.classList.toggle("is-active", isCurrent);
+      btn.setAttribute("aria-pressed", String(isCurrent));
+    }
   }
 
   bringToPointer(): void {
@@ -1046,6 +1138,13 @@ export class DigitalPetElement extends HTMLElement {
     soundVolume.addEventListener("input", () => {
       this.setAttribute("volume", soundVolume.value);
     });
+
+    this.shadowRoot?.querySelectorAll<HTMLButtonElement>("[data-breed]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const breed = button.dataset.breed as DogBreed;
+        if (breed) this.setBreed(breed);
+      });
+    });
   }
 
   private openPanel(): void {
@@ -1112,6 +1211,7 @@ export class DigitalPetElement extends HTMLElement {
 
     try {
       this.threeRenderer = new ThreePetRenderer(this.webglCanvas);
+      this.threeRenderer.setBreed(this.currentBreed);
       this.rendererValue = "3d";
       this.canvas = this.webglCanvas;
       this.webglCanvas.hidden = !this.visible;
@@ -1434,6 +1534,7 @@ export class DigitalPetElement extends HTMLElement {
           pointerAngleY,
           isPetting,
           carryingBall: this.carryingBall,
+          breed: this.currentBreed,
         });
       } else {
         this.draw(now / 1000);
@@ -2244,6 +2345,7 @@ export function mountDigitalPet(options: DigitalPetOptions = {}): DigitalPetElem
   if (options.zIndex !== undefined) pet.setAttribute("z-index", String(options.zIndex));
   if (options.startCorner) pet.setAttribute("start-corner", options.startCorner);
   if (options.modelSrc) pet.setAttribute("model-src", options.modelSrc);
+  if (options.breed) pet.setAttribute("breed", options.breed);
   document.body.append(pet);
   return pet;
 }

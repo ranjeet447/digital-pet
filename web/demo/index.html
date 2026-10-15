@@ -1340,6 +1340,13 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
         });
       });
 
+      const breedButtons = document.querySelectorAll("[data-breed-btn]");
+      breedButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          pet.setBreed(button.dataset.breedBtn);
+        });
+      });
+
       pet.addEventListener("digital-pet-renderer-change", (event) => {
         viewButtons.forEach((button) => {
           const selected = button.dataset.view === event.detail.renderer;
@@ -1347,6 +1354,15 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
           button.setAttribute("aria-pressed", String(selected));
         });
         statusText.textContent = `Shiro is using the ${event.detail.renderer.toUpperCase()} view`;
+      });
+
+      pet.addEventListener("digital-pet-breed-change", (event) => {
+        breedButtons.forEach((button) => {
+          const selected = button.dataset.breedBtn === event.detail.breed;
+          button.classList.toggle("active", selected);
+          button.setAttribute("aria-pressed", String(selected));
+        });
+        statusText.textContent = `Dog breed: ${event.detail.profile.name}`;
       });
 
       codeTabs.forEach((tab) => {
@@ -1500,6 +1516,29 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
                   </button>
                   <button class="view-option active" type="button" data-view="3d" aria-pressed="true">
                     3D
+                  </button>
+                </div>
+              </div>
+              <div class="view-picker" style="margin-top: 14px">
+                <strong>Choose a dog breed</strong>
+                <div class="view-options" role="group" aria-label="Dog breed" style="grid-template-columns: repeat(3, 1fr); width: 100%">
+                  <button class="view-option active" type="button" data-breed-btn="golden-retriever" aria-pressed="true">
+                    Golden Retriever
+                  </button>
+                  <button class="view-option" type="button" data-breed-btn="black-labrador" aria-pressed="false">
+                    Black Lab
+                  </button>
+                  <button class="view-option" type="button" data-breed-btn="chocolate-labrador" aria-pressed="false">
+                    Chocolate Lab
+                  </button>
+                  <button class="view-option" type="button" data-breed-btn="husky" aria-pressed="false">
+                    Siberian Husky
+                  </button>
+                  <button class="view-option" type="button" data-breed-btn="german-shepherd" aria-pressed="false">
+                    German Shepherd
+                  </button>
+                  <button class="view-option" type="button" data-breed-btn="shiba-inu" aria-pressed="false">
+                    Shiba Inu
                   </button>
                 </div>
               </div>

@@ -1,6 +1,109 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
+export type DogBreed =
+  | "golden-retriever"
+  | "black-labrador"
+  | "chocolate-labrador"
+  | "husky"
+  | "german-shepherd"
+  | "shiba-inu";
+
+export interface BreedProfile {
+  name: string;
+  coatMain: number;
+  coatLight: number;
+  coatEar: number;
+  eyeColor: number;
+  sheenColor: number;
+  sheenIntensity: number;
+  roughness: number;
+  collarColor: number;
+  tagColor: number;
+  scaleFactor: number;
+}
+
+export const DOG_BREEDS: Record<DogBreed, BreedProfile> = {
+  "golden-retriever": {
+    name: "Golden Retriever",
+    coatMain: 0xd9822b,
+    coatLight: 0xf6dfbe,
+    coatEar: 0xb5631b,
+    eyeColor: 0x080605,
+    sheenColor: 0xffdfaa,
+    sheenIntensity: 0.85,
+    roughness: 0.72,
+    collarColor: 0xc92a2a,
+    tagColor: 0xf59e0b,
+    scaleFactor: 1.0,
+  },
+  "black-labrador": {
+    name: "Black Labrador",
+    coatMain: 0x181a1d,
+    coatLight: 0x24282e,
+    coatEar: 0x111315,
+    eyeColor: 0x422813,
+    sheenColor: 0x94a3b8,
+    sheenIntensity: 0.90,
+    roughness: 0.65,
+    collarColor: 0x0284c7,
+    tagColor: 0xf1f5f9,
+    scaleFactor: 1.02,
+  },
+  "chocolate-labrador": {
+    name: "Chocolate Labrador",
+    coatMain: 0x422616,
+    coatLight: 0x5a341d,
+    coatEar: 0x32190d,
+    eyeColor: 0x523015,
+    sheenColor: 0x995c37,
+    sheenIntensity: 0.85,
+    roughness: 0.70,
+    collarColor: 0x16a34a,
+    tagColor: 0xf59e0b,
+    scaleFactor: 1.01,
+  },
+  husky: {
+    name: "Siberian Husky",
+    coatMain: 0x5f6772,
+    coatLight: 0xf8fafc,
+    coatEar: 0x333b46,
+    eyeColor: 0x38bdf8, // Piercing arctic ice-blue eyes!
+    sheenColor: 0xe2e8f0,
+    sheenIntensity: 0.88,
+    roughness: 0.75,
+    collarColor: 0xe11d48,
+    tagColor: 0x38bdf8,
+    scaleFactor: 0.98,
+  },
+  "german-shepherd": {
+    name: "German Shepherd",
+    coatMain: 0xb87a36,
+    coatLight: 0xd9b382,
+    coatEar: 0x141312, // Black masked ears
+    eyeColor: 0x20140b,
+    sheenColor: 0xd97706,
+    sheenIntensity: 0.85,
+    roughness: 0.72,
+    collarColor: 0x991b1b,
+    tagColor: 0xf59e0b,
+    scaleFactor: 1.04,
+  },
+  "shiba-inu": {
+    name: "Shiba Inu",
+    coatMain: 0xd9682a,
+    coatLight: 0xfff4e6, // Urajiro white cheeks/chest
+    coatEar: 0x9c3d10,
+    eyeColor: 0x1a1109,
+    sheenColor: 0xfdba74,
+    sheenIntensity: 0.85,
+    roughness: 0.70,
+    collarColor: 0x059669,
+    tagColor: 0xf59e0b,
+    scaleFactor: 0.92,
+  },
+};
+
 export interface ThreePetFrame {
   behavior: string;
   progress: number;
@@ -13,6 +116,7 @@ export interface ThreePetFrame {
   pointerAngleY?: number;
   isPetting?: boolean;
   carryingBall?: boolean;
+  breed?: DogBreed;
 }
 
 type LegRig = {
@@ -100,6 +204,8 @@ export class ThreePetRenderer {
   private currentHeadPitch = 0;
   private earSpringAngles: [number, number] = [0, 0];
   private earSpringVelocities: [number, number] = [0, 0];
+  private currentBreed: DogBreed = "golden-retriever";
+  private readonly gltfMaterialsByName = new Map<string, THREE.Material>();
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(40, 220 / 180, 0.1, 50);
@@ -300,8 +406,62 @@ export class ThreePetRenderer {
     return this.isModelLoaded;
   }
 
+  get breed(): DogBreed {
+    return this.currentBreed;
+  }
+
+  setBreed(breed: DogBreed): void {
+    if (this.currentBreed === breed) return;
+    this.currentBreed = breed;
+    this.applyBreedMaterials();
+  }
+
+  private applyBreedMaterials(): void {
+    const profile = DOG_BREEDS[this.currentBreed] || DOG_BREEDS["golden-retriever"];
+    const furMat = this.gltfMaterialsByName.get("Fur") as THREE.MeshPhysicalMaterial | undefined;
+    if (furMat) {
+      furMat.color.setHex(profile.coatMain);
+      furMat.sheenColor.setHex(profile.sheenColor);
+      furMat.sheen = profile.sheenIntensity;
+      furMat.roughness = profile.roughness;
+    }
+    const lightMat = this.gltfMaterialsByName.get("Light") as THREE.MeshPhysicalMaterial | undefined;
+    if (lightMat) {
+      lightMat.color.setHex(profile.coatLight);
+      lightMat.sheenColor.setHex(profile.sheenColor);
+      lightMat.sheen = profile.sheenIntensity * 0.8;
+      lightMat.roughness = profile.roughness;
+    }
+    const earMat = this.gltfMaterialsByName.get("Ear") as THREE.MeshPhysicalMaterial | undefined;
+    if (earMat) {
+      earMat.color.setHex(profile.coatEar);
+      earMat.sheenColor.setHex(profile.sheenColor);
+      earMat.sheen = profile.sheenIntensity;
+      earMat.roughness = profile.roughness;
+    }
+    const eyeMat = this.gltfMaterialsByName.get("Ink") as THREE.MeshStandardMaterial | undefined;
+    if (eyeMat) {
+      eyeMat.color.setHex(profile.eyeColor);
+    }
+    const collarMat = this.gltfMaterialsByName.get("Collar") as THREE.MeshStandardMaterial | undefined;
+    if (collarMat) {
+      collarMat.color.setHex(profile.collarColor);
+    }
+    const tagMat = this.gltfMaterialsByName.get("Tag") as THREE.MeshStandardMaterial | undefined;
+    if (tagMat) {
+      tagMat.color.setHex(profile.tagColor);
+    }
+    if (this.gltfModel && this.gltfModel.userData.baseScale) {
+      this.gltfModel.scale.setScalar(this.gltfModel.userData.baseScale * profile.scaleFactor);
+    }
+  }
+
   render(frame: ThreePetFrame): void {
     this.resetPose();
+
+    if (frame.breed && frame.breed !== this.currentBreed) {
+      this.setBreed(frame.breed);
+    }
 
     const dt = this.lastTime === 0 ? 0.016 : Math.min(0.1, frame.time - this.lastTime);
     this.lastTime = frame.time;
@@ -353,9 +513,16 @@ export class ThreePetRenderer {
       this.mixer.update(dt);
 
       // Natural canine facing angle in beauty view
-      let targetRotY = frame.facing >= 0 ? 0.55 : -0.55;
+      const facingSign = frame.facing >= 0 ? 1 : -1;
+      let targetRotY = 0.55 * facingSign;
       if (frame.behavior === "walking" || frame.behavior === "running" || frame.behavior === "chasing") {
-        targetRotY = frame.facing >= 0 ? 1.35 : -1.35;
+        targetRotY = 1.35 * facingSign;
+      } else if (["handshake", "hi-five", "salute"].includes(frame.behavior)) {
+        // Face forward toward the viewer with a slight welcoming angle so the raised paw is fully visible
+        targetRotY = 0.22 * facingSign;
+      } else if (frame.behavior === "namaste") {
+        // Direct front view for symmetrical touching folded paws
+        targetRotY = 0.0;
       }
 
       this.currentModelRotationY = smoothDamp(this.currentModelRotationY, targetRotY, 9.0, dt);
@@ -378,7 +545,7 @@ export class ThreePetRenderer {
       }
 
       // Feature 1: Realistic head tracking (eye contact with cursor)
-      const canTrackHead = !["sleeping", "down", "roll-over"].includes(frame.behavior);
+      const canTrackHead = ["idle", "sit", "quiet", "ask-food", "handshake", "hi-five", "salute", "wag"].includes(frame.behavior);
       let targetHeadYaw = 0;
       let targetHeadPitch = 0;
 
@@ -419,40 +586,46 @@ export class ThreePetRenderer {
       this.earSpringAngles[1] += this.earSpringVelocities[1] * dt;
 
       // Additive bone adjustments for front paws, head, and floppy ears
+      // Helper function to apply local additive euler rotation to a bone's quaternion
+      const rotateBone = (bone: THREE.Bone | undefined, rx: number, ry: number, rz: number) => {
+        if (!bone) return;
+        const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz));
+        bone.quaternion.multiply(q);
+      };
+
       const frontPawR = this.gltfBones.get("front_upper_R");
       const frontPawL = this.gltfBones.get("front_upper_L");
+      const frontLowerR = this.gltfBones.get("front_lower_R");
+      const frontLowerL = this.gltfBones.get("front_lower_L");
       const head = this.gltfBones.get("head");
       const earL = this.gltfBones.get("ear_L");
       const earR = this.gltfBones.get("ear_R");
 
       if (head) {
-        head.rotation.y += this.currentHeadYaw;
-        head.rotation.x += this.currentHeadPitch;
+        rotateBone(head, this.currentHeadPitch, this.currentHeadYaw, 0);
       }
 
       if (earL && earR) {
-        earL.rotation.x += this.earSpringAngles[0];
-        earR.rotation.x += this.earSpringAngles[1];
-        if (frame.isPetting) {
-          earL.rotation.z += 0.18;
-          earR.rotation.z -= 0.18;
-        }
+        rotateBone(earL, this.earSpringAngles[0], 0, frame.isPetting ? 0.18 : 0);
+        rotateBone(earR, this.earSpringAngles[1], 0, frame.isPetting ? -0.18 : 0);
       }
 
-      if (frame.behavior === "handshake" && frontPawR) {
-        frontPawR.rotation.x += 0.85;
-      } else if (frame.behavior === "hi-five" && frontPawR) {
-        frontPawR.rotation.x += 1.45;
-      } else if (frame.behavior === "salute" && frontPawR) {
-        frontPawR.rotation.x += 1.6;
-        frontPawR.rotation.z -= 0.35;
-      } else if (frame.behavior === "namaste" && frontPawR && frontPawL) {
-        frontPawR.rotation.x += 1.15;
-        frontPawR.rotation.z -= 0.3;
-        frontPawL.rotation.x += 1.15;
-        frontPawL.rotation.z += 0.3;
+      if (frame.behavior === "handshake") {
+        rotateBone(frontPawR, -0.92, 0.05, -0.18);
+        rotateBone(frontLowerR, 0.35, 0, 0);
+      } else if (frame.behavior === "hi-five") {
+        rotateBone(frontPawR, -1.48, 0.12, -0.22);
+        rotateBone(frontLowerR, 0.25, 0, 0);
+      } else if (frame.behavior === "salute") {
+        rotateBone(frontPawR, -1.35, 0.28, -0.55);
+        rotateBone(frontLowerR, 0.55, 0, 0);
+      } else if (frame.behavior === "namaste") {
+        rotateBone(frontPawR, -1.05, 0.12, -0.28);
+        rotateBone(frontPawL, -1.05, -0.12, 0.28);
+        rotateBone(frontLowerR, 0.40, 0, 0);
+        rotateBone(frontLowerL, 0.40, 0, 0);
       } else if (frame.behavior === "ask-food" && head) {
-        head.rotation.z += Math.sin(frame.time * 4) * 0.18 + 0.22;
+        rotateBone(head, 0, 0, Math.sin(frame.time * 4) * 0.18 + 0.22);
       }
 
       // Interactive props (fetch ball, food bowl, treat)
@@ -677,10 +850,11 @@ export class ThreePetRenderer {
       this.initialBoneRotations.clear();
       this.initialBonePositions.clear();
       this.dogMesh = null;
+      this.gltfMaterialsByName.clear();
 
       this.gltfModel = gltf.scene;
 
-      // Apply dedicated physical Golden Retriever materials to each slot
+      // Apply dedicated physical dog materials to each slot and register in map
       this.gltfModel.traverse((node) => {
         if (node instanceof THREE.Mesh) {
           node.castShadow = true;
@@ -689,8 +863,9 @@ export class ThreePetRenderer {
             const mats = Array.isArray(node.material) ? node.material : [node.material];
             const newMats = mats.map((m) => {
               const name = m.name;
+              let created: THREE.Material = m;
               if (name === "Fur") {
-                return new THREE.MeshPhysicalMaterial({
+                created = new THREE.MeshPhysicalMaterial({
                   color: 0xd9822b, // warm golden retriever amber coat
                   roughness: 0.72,
                   metalness: 0.0,
@@ -700,9 +875,8 @@ export class ThreePetRenderer {
                   sheenColor: 0xffdfaa,
                   sheenRoughness: 0.42,
                 });
-              }
-              if (name === "Light") {
-                return new THREE.MeshPhysicalMaterial({
+              } else if (name === "Light") {
+                created = new THREE.MeshPhysicalMaterial({
                   color: 0xf6dfbe, // soft cream chest feathering & paw socks
                   roughness: 0.76,
                   metalness: 0.0,
@@ -712,9 +886,8 @@ export class ThreePetRenderer {
                   sheenColor: 0xfff4db,
                   sheenRoughness: 0.45,
                 });
-              }
-              if (name === "Ear") {
-                return new THREE.MeshPhysicalMaterial({
+              } else if (name === "Ear") {
+                created = new THREE.MeshPhysicalMaterial({
                   color: 0xb5631b, // velvety honey-golden ears
                   roughness: 0.70,
                   metalness: 0.0,
@@ -724,48 +897,45 @@ export class ThreePetRenderer {
                   sheenColor: 0xdc9258,
                   sheenRoughness: 0.38,
                 });
-              }
-              if (name === "Ink") {
-                return new THREE.MeshStandardMaterial({
+              } else if (name === "Ink") {
+                created = new THREE.MeshStandardMaterial({
                   color: 0x080605, // deep glossy canine eyes
                   roughness: 0.08,
                   metalness: 0.0,
                 });
-              }
-              if (name === "Shine") {
-                return new THREE.MeshBasicMaterial({
+              } else if (name === "Shine") {
+                created = new THREE.MeshBasicMaterial({
                   color: 0xffffff, // pure specular eye catchlight
                 });
-              }
-              if (name === "Nose") {
-                return new THREE.MeshStandardMaterial({
+              } else if (name === "Nose") {
+                created = new THREE.MeshStandardMaterial({
                   color: 0x110e0c, // wet black leathery nose
                   roughness: 0.2,
                   metalness: 0.0,
                 });
-              }
-              if (name === "Tongue") {
-                return new THREE.MeshStandardMaterial({
+              } else if (name === "Tongue") {
+                created = new THREE.MeshStandardMaterial({
                   color: 0xed6378, // healthy pink tongue
                   roughness: 0.4,
                   metalness: 0.0,
                 });
-              }
-              if (name === "Collar") {
-                return new THREE.MeshStandardMaterial({
+              } else if (name === "Collar") {
+                created = new THREE.MeshStandardMaterial({
                   color: 0xc92a2a, // ruby red collar
                   roughness: 0.4,
                   metalness: 0.0,
                 });
-              }
-              if (name === "Tag") {
-                return new THREE.MeshStandardMaterial({
+              } else if (name === "Tag") {
+                created = new THREE.MeshStandardMaterial({
                   color: 0xf59e0b, // bright gold medal tag
                   metalness: 0.85,
                   roughness: 0.25,
                 });
               }
-              return m;
+              if (name) {
+                this.gltfMaterialsByName.set(name, created);
+              }
+              return created;
             });
             node.material = Array.isArray(node.material) ? newMats : newMats[0];
           }
@@ -784,6 +954,8 @@ export class ThreePetRenderer {
       const maxDim = Math.max(size.x, size.y, size.z);
       const scale = 1.05 / (maxDim || 1);
       this.gltfModel.scale.setScalar(scale);
+      this.gltfModel.userData.baseScale = scale;
+      this.applyBreedMaterials();
 
       const center = new THREE.Vector3();
       box.getCenter(center);
