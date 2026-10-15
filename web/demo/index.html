@@ -1350,7 +1350,11 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
       const activityButtons = document.querySelectorAll("[data-activity-btn]");
       activityButtons.forEach((button) => {
         button.addEventListener("click", () => {
-          pet.setActivity(button.dataset.activityBtn);
+          if (pet && typeof pet.setActivity === "function") {
+            pet.setActivity(button.dataset.activityBtn);
+          } else if (pet) {
+            pet.setAttribute("activity", button.dataset.activityBtn);
+          }
         });
       });
 

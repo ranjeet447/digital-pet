@@ -709,6 +709,8 @@ export class DigitalPetElement extends HTMLElement {
     const initialActivity = this.getAttribute("activity") as PetActivityLevel;
     if (initialActivity && ["calm", "normal", "playful", "manual"].includes(initialActivity)) {
       this.activityValue = initialActivity;
+    } else {
+      this.setAttribute("activity", this.activityValue);
     }
     this.updateActivityButtons();
 
@@ -989,6 +991,10 @@ export class DigitalPetElement extends HTMLElement {
     this.setActivity(value);
   }
 
+  get currentBehavior(): Behavior {
+    return this.behavior;
+  }
+
   setActivity(activity: PetActivityLevel): void {
     if (!["calm", "normal", "playful", "manual"].includes(activity)) return;
     this.activityValue = activity;
@@ -996,15 +1002,43 @@ export class DigitalPetElement extends HTMLElement {
       this.setAttribute("activity", activity);
     }
     this.updateActivityButtons();
+
+    // Wake up pet if currently sleeping or lying down
+    if (["sleeping", "down"].includes(this.behavior)) {
+      this.behaviorEndsAt = null;
+      this.setBehavior("idle");
+    }
+
     if (activity === "manual") {
       this.nextDecisionAt = Number.POSITIVE_INFINITY;
+      this.targetPosition = null;
+      this.horizontalVelocity = 0;
+      this.verticalVelocity = 0;
+      this.behaviorEndsAt = null;
+      if (["walking", "running", "chasing"].includes(this.behavior)) {
+        this.setBehavior("idle");
+      }
+      this.say("Manual mode 🎮");
     } else if (activity === "calm") {
+      this.targetPosition = null;
+      this.horizontalVelocity = 0;
+      this.verticalVelocity = 0;
+      this.say("Calm pace 💤");
+      this.setTimedBehavior("sit", 3500);
       this.nextDecisionAt = performance.now() + randomBetween(20000, 45000);
     } else if (activity === "normal") {
-      this.nextDecisionAt = performance.now() + randomBetween(10000, 22000);
+      this.say("Normal pace 🐾");
+      this.nextDecisionAt = performance.now() + randomBetween(8000, 18000);
     } else if (activity === "playful") {
-      this.nextDecisionAt = performance.now() + randomBetween(4000, 8000);
+      this.targetPosition = null;
+      this.horizontalVelocity = 0;
+      this.verticalVelocity = 0;
+      this.say("Playful! 🎾");
+      this.playBark("happy");
+      this.setTimedBehavior("wag", 1400);
+      this.nextDecisionAt = performance.now() + 1400;
     }
+
     this.dispatchEvent(
       new CustomEvent("digital-pet-activity-change", {
         detail: { activity },
@@ -1726,9 +1760,9 @@ export class DigitalPetElement extends HTMLElement {
         } else if (this.activityValue === "calm") {
           this.nextDecisionAt = now + randomBetween(20000, 45000);
         } else if (this.activityValue === "normal") {
-          this.nextDecisionAt = now + randomBetween(10000, 22000);
+          this.nextDecisionAt = now + randomBetween(8000, 18000);
         } else {
-          this.nextDecisionAt = now + randomBetween(4000, 8000);
+          this.nextDecisionAt = now + randomBetween(2500, 5000);
         }
       }
     }
@@ -1745,7 +1779,7 @@ export class DigitalPetElement extends HTMLElement {
       now >= this.nextDecisionAt &&
       this.behaviorEndsAt === null &&
       this.fetchPhase === "idle" &&
-      !["chasing", "sleeping"].includes(this.behavior)
+      this.behavior !== "chasing"
     ) {
       this.chooseAutonomousBehavior();
     }
@@ -1825,9 +1859,9 @@ export class DigitalPetElement extends HTMLElement {
       } else if (this.activityValue === "calm") {
         this.nextDecisionAt = performance.now() + randomBetween(20000, 45000);
       } else if (this.activityValue === "normal") {
-        this.nextDecisionAt = performance.now() + randomBetween(10000, 22000);
+        this.nextDecisionAt = performance.now() + randomBetween(8000, 18000);
       } else {
-        this.nextDecisionAt = performance.now() + randomBetween(4000, 8000);
+        this.nextDecisionAt = performance.now() + randomBetween(2500, 5000);
       }
       return;
     }
@@ -1977,6 +2011,9 @@ export class DigitalPetElement extends HTMLElement {
     if (this.behavior !== behavior) {
       this.behavior = behavior;
       this.behaviorStartedAt = performance.now();
+      if (this.getAttribute("behavior") !== behavior) {
+        this.setAttribute("behavior", behavior);
+      }
     }
     if (!["walking", "running"].includes(behavior)) {
       this.targetPosition = null;
