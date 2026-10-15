@@ -72,115 +72,44 @@ function createFurNoiseTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-function createGoldenRetrieverCoatTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 512;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    const grad = ctx.createLinearGradient(0, 0, 512, 512);
-    grad.addColorStop(0, "#d29242");
-    grad.addColorStop(0.35, "#e2aa56");
-    grad.addColorStop(0.7, "#c98734");
-    grad.addColorStop(1, "#f2cb82");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 512, 512);
-
-    const furColors = ["#eeb462", "#f9dda1", "#9e5c26", "#d99748", "#fbe6b8", "#b8702c"];
-    for (let i = 0; i < 48000; i++) {
-      ctx.fillStyle = furColors[Math.floor(Math.random() * furColors.length)];
-      const x = Math.random() * 512;
-      const y = Math.random() * 512;
-      const len = 3 + Math.random() * 8;
-      const angle = -Math.PI / 4 + (Math.random() - 0.5) * 0.28;
-
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
-      ctx.lineWidth = 0.6 + Math.random() * 1.0;
-      ctx.strokeStyle = ctx.fillStyle;
-      ctx.stroke();
-    }
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(3, 3);
-  return texture;
-}
-
-function createGoldenRetrieverBumpTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 512;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.fillStyle = "#808080";
-    ctx.fillRect(0, 0, 512, 512);
-
-    for (let i = 0; i < 36000; i++) {
-      const shade = Math.random() < 0.5 ? Math.floor(210 + Math.random() * 45) : Math.floor(35 + Math.random() * 55);
-      ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
-      const x = Math.random() * 512;
-      const y = Math.random() * 512;
-      const len = 3 + Math.random() * 7;
-      const angle = -Math.PI / 4 + (Math.random() - 0.5) * 0.22;
-
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
-      ctx.lineWidth = 0.5 + Math.random() * 0.8;
-      ctx.strokeStyle = ctx.fillStyle;
-      ctx.stroke();
-    }
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(3, 3);
-  return texture;
-}
-
-function createFeatherTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement("canvas");
-  canvas.width = 128;
-  canvas.height = 256;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.clearRect(0, 0, 128, 256);
-    for (let i = 0; i < 2200; i++) {
-      const y = Math.random() * 220;
-      const side = Math.random() < 0.5 ? -1 : 1;
-      const startX = 64;
-      const len = (18 + Math.random() * 42) * Math.max(0.2, 1 - y / 240);
-      const angle = (Math.PI / 4 + Math.random() * 0.28) * (side > 0 ? 1 : -1) + (side > 0 ? 0 : Math.PI);
-      const endX = startX + Math.cos(angle) * len;
-      const endY = y + Math.sin(Math.abs(angle)) * len * 0.75;
-
-      ctx.beginPath();
-      ctx.moveTo(startX, y);
-      ctx.quadraticCurveTo(startX + (endX - startX) * 0.5, y + 8, endX, endY);
-      ctx.strokeStyle = Math.random() < 0.35 ? "#fbe3b5" : Math.random() < 0.75 ? "#dba050" : "#be792b";
-      ctx.lineWidth = 0.8 + Math.random() * 1.2;
-      ctx.globalAlpha = Math.max(0.12, 1 - y / 230);
-      ctx.stroke();
-    }
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  return texture;
+function smoothDamp(current: number, target: number, speed: number, dt: number): number {
+  return target + (current - target) * Math.exp(-speed * dt);
 }
 
 export class ThreePetRenderer {
   private readonly baseFur = createBaseFurTexture();
   private readonly furNoise = createFurNoiseTexture();
-  private readonly retrieverCoat = createGoldenRetrieverCoatTexture();
-  private readonly retrieverBump = createGoldenRetrieverBumpTexture();
-  private readonly featherTexture = createFeatherTexture();
   private readonly gltfBones = new Map<string, THREE.Bone>();
   private readonly initialBoneRotations = new Map<string, THREE.Euler>();
   private readonly initialBonePositions = new Map<string, THREE.Vector3>();
   private dogMesh: THREE.SkinnedMesh | null = null;
-  private featherMeshes: THREE.Mesh[] = [];
+  private currentModelRotationY = -0.94;
+  private currentRootPosY = 0;
+  private currentRootPosZ = 0;
+  private currentSpine1Pitch = 0;
+  private currentSpine2Pitch = 0;
+  private currentSpineTopPitch = 0;
+  private currentSpineYaw = 0;
+  private currentNeck1Pitch = 0;
+  private currentNeckTopPitch = 0;
+  private currentNeckTopYaw = 0;
+  private currentJawOpen = 0;
+  private currentLeftFrontHip = 0;
+  private currentLeftFrontKnee = 0;
+  private currentLeftFrontAnkle = 0;
+  private currentRightFrontHip = 0;
+  private currentRightFrontKnee = 0;
+  private currentRightFrontAnkle = 0;
+  private currentLeftHindHip = 0;
+  private currentLeftHindKnee = 0;
+  private currentLeftHindAnkle = 0;
+  private currentRightHindHip = 0;
+  private currentRightHindKnee = 0;
+  private currentRightHindAnkle = 0;
+  private currentLeftEarX = 0;
+  private currentRightEarX = 0;
+  private currentLeftEarZ = 0;
+  private currentRightEarZ = 0;
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera(-2.3, 2.3, 1.82, -1.72, 0.1, 30);
@@ -360,7 +289,7 @@ export class ThreePetRenderer {
     this.lastTime = frame.time;
 
     if (this.isModelLoaded && this.gltfModel) {
-      this.updateCanineKinematics(frame);
+      this.updateCanineKinematics(frame, dt);
 
       const sideFacing = ((1 - frame.facing) / 2) * Math.PI;
       const facesViewer = ["idle", "sit", "handshake", "hi-five", "salute", "namaste", "speak", "feed", "treat", "ask-food"].includes(
@@ -370,13 +299,17 @@ export class ThreePetRenderer {
       if (frame.behavior === "surprise") {
         const initialAngle = sideFacing;
         this.gltfModel.rotation.y = initialAngle + frame.progress * Math.PI * 2;
+        this.currentModelRotationY = this.gltfModel.rotation.y;
         this.gltfModel.rotation.x = 0;
         this.gltfModel.position.y = 0;
       } else if (frame.behavior === "roll-over") {
-        this.gltfModel.rotation.y = facesViewer ? -0.94 : sideFacing;
+        const targetRotY = facesViewer ? -0.94 : sideFacing;
+        this.currentModelRotationY = smoothDamp(this.currentModelRotationY, targetRotY, 7.5, dt);
+        this.gltfModel.rotation.y = this.currentModelRotationY;
         const p = frame.progress;
         if (p < 0.22) {
           this.gltfModel.position.y = -0.32 * (p / 0.22);
+          this.gltfModel.rotation.x = 0;
         } else if (p < 0.78) {
           const rollPhase = (p - 0.22) / 0.56;
           this.gltfModel.position.y = -0.32 + Math.sin(rollPhase * Math.PI) * 0.08;
@@ -386,10 +319,12 @@ export class ThreePetRenderer {
           this.gltfModel.rotation.x = 0;
         }
       } else {
-        this.gltfModel.rotation.y = facesViewer ? -0.94 : sideFacing;
+        const targetRotY = facesViewer ? -0.94 : sideFacing;
+        this.currentModelRotationY = smoothDamp(this.currentModelRotationY, targetRotY, 7.5, dt);
+        this.gltfModel.rotation.y = this.currentModelRotationY;
         this.gltfModel.rotation.x = 0;
         const gaitBob = ["walking", "running", "chasing", "fetch"].includes(frame.behavior)
-          ? Math.abs(Math.sin(frame.time * (frame.behavior === "walking" ? 6.8 : 12))) * 0.02
+          ? Math.abs(Math.sin(frame.time * (frame.behavior === "walking" ? 6.2 : 11))) * 0.02
           : 0;
         this.gltfModel.position.y = gaitBob;
       }
@@ -555,15 +490,6 @@ export class ThreePetRenderer {
   }
 
   dispose(): void {
-    this.featherMeshes.forEach((mesh) => {
-      mesh.geometry.dispose();
-      if (Array.isArray(mesh.material)) {
-        mesh.material.forEach((m) => m.dispose());
-      } else {
-        mesh.material.dispose();
-      }
-    });
-    this.featherMeshes = [];
     this.gltfBones.clear();
     this.initialBoneRotations.clear();
     this.initialBonePositions.clear();
@@ -592,7 +518,6 @@ export class ThreePetRenderer {
       this.gltfBones.clear();
       this.initialBoneRotations.clear();
       this.initialBonePositions.clear();
-      this.featherMeshes = [];
       this.dogMesh = null;
 
       this.gltfModel = gltf.scene;
@@ -601,26 +526,14 @@ export class ThreePetRenderer {
       const size = new THREE.Vector3();
       box.getSize(size);
       const maxDim = Math.max(size.x, size.y, size.z);
-      const scale = 2.45 / (maxDim || 1);
+      // Large, prominent retriever size filling canvas naturally in all scales:
+      const targetSpan = 3.85;
+      const scale = targetSpan / (maxDim || 1);
       this.gltfModel.scale.setScalar(scale);
 
       const center = new THREE.Vector3();
       box.getCenter(center);
       this.gltfModel.position.set(-center.x * scale, -box.min.y * scale - 0.04, -center.z * scale);
-
-      const retrieverMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0xd89d4d,
-        map: this.retrieverCoat,
-        bumpMap: this.retrieverBump,
-        bumpScale: 0.08,
-        roughness: 0.76,
-        metalness: 0.0,
-        sheen: 1.0,
-        sheenColor: new THREE.Color(0xffe6b2),
-        sheenRoughness: 0.52,
-        clearcoat: 0.02,
-        emissive: new THREE.Color(0x000000),
-      });
 
       this.gltfModel.traverse((node) => {
         if (node instanceof THREE.Bone) {
@@ -632,14 +545,37 @@ export class ThreePetRenderer {
           this.dogMesh = node;
           node.castShadow = true;
           node.receiveShadow = true;
-          node.material = retrieverMaterial;
+          if (node.material instanceof THREE.MeshStandardMaterial) {
+            // Keep the real canine facial texture with sharp dark eyes, black wet nose, mouth & paws
+            const baseMap = node.material.map;
+            const normMap = node.material.normalMap;
+            const roughMap = node.material.roughnessMap;
+
+            if (normMap) {
+              normMap.wrapS = THREE.RepeatWrapping;
+              normMap.wrapT = THREE.RepeatWrapping;
+            }
+
+            const pbrFurMat = new THREE.MeshPhysicalMaterial({
+              map: baseMap,
+              normalMap: normMap,
+              normalScale: new THREE.Vector2(1.8, 1.8), // Boost sculpted fur grain
+              roughnessMap: roughMap,
+              roughness: 0.72,
+              metalness: 0.0,
+              color: new THREE.Color(0xffedd4), // Gentle warm golden tint that highlights fur while keeping eyes & nose dark
+              emissive: new THREE.Color(0x000000), // Zero emissive eliminates white wash-out!
+              sheen: 1.0,
+              sheenColor: new THREE.Color(0xffdfaa), // Velvety golden fur rim reflection
+              sheenRoughness: 0.48,
+            });
+            node.material = pbrFurMat;
+          }
         } else if (node instanceof THREE.Mesh) {
           node.castShadow = true;
           node.receiveShadow = true;
         }
       });
-
-      this.attachRetrieverFeathering();
 
       this.scene.add(this.gltfModel);
       this.root.visible = false;
@@ -657,78 +593,7 @@ export class ThreePetRenderer {
     }
   }
 
-  private attachRetrieverFeathering(): void {
-    const featherMaterial = new THREE.MeshStandardMaterial({
-      map: this.featherTexture,
-      transparent: true,
-      alphaTest: 0.06,
-      roughness: 0.86,
-      color: 0xdfa252,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-
-    const tailNames = ["Dog_Tail_01_02SHJnt", "Dog_Tail_01_03SHJnt", "Dog_Tail_01_04SHJnt", "Dog_Tail_01_05SHJnt"];
-    tailNames.forEach((name, idx) => {
-      const bone = this.gltfBones.get(name);
-      if (bone) {
-        const plume = new THREE.Mesh(new THREE.PlaneGeometry(0.22 + idx * 0.06, 0.32 + idx * 0.07), featherMaterial);
-        plume.position.set(0, -0.12 - idx * 0.02, 0.04);
-        plume.rotation.y = Math.PI / 2;
-        bone.add(plume);
-        this.featherMeshes.push(plume);
-      }
-    });
-
-    const chestBone = this.gltfBones.get("Dog_Spine_TopSHJnt") || this.gltfBones.get("Dog_Neck_01SHJnt");
-    if (chestBone) {
-      const ruff = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.46), featherMaterial);
-      ruff.position.set(0, -0.06, 0.22);
-      ruff.rotation.x = 0.28;
-      chestBone.add(ruff);
-      this.featherMeshes.push(ruff);
-
-      const ruff2 = ruff.clone();
-      ruff2.scale.set(0.85, 0.85, 0.85);
-      ruff2.position.set(0, -0.14, 0.18);
-      chestBone.add(ruff2);
-      this.featherMeshes.push(ruff2);
-    }
-
-    const leftKnee = this.gltfBones.get("Dog_l_FrontLeg_KneeSHJnt");
-    if (leftKnee) {
-      const fringe = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.28), featherMaterial);
-      fringe.position.set(0.04, -0.1, -0.06);
-      fringe.rotation.y = Math.PI / 2;
-      leftKnee.add(fringe);
-      this.featherMeshes.push(fringe);
-    }
-    const rightKnee = this.gltfBones.get("Dog_r_FrontLeg_KneeSHJnt");
-    if (rightKnee) {
-      const fringe = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.28), featherMaterial);
-      fringe.position.set(-0.04, -0.1, -0.06);
-      fringe.rotation.y = -Math.PI / 2;
-      rightKnee.add(fringe);
-      this.featherMeshes.push(fringe);
-    }
-
-    const leftEar = this.gltfBones.get("Dog_l_Ear_01_01SHJnt");
-    if (leftEar) {
-      const earFringe = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.25), featherMaterial);
-      earFringe.position.set(0.05, -0.12, 0);
-      leftEar.add(earFringe);
-      this.featherMeshes.push(earFringe);
-    }
-    const rightEar = this.gltfBones.get("Dog_r_Ear_01_01SHJnt");
-    if (rightEar) {
-      const earFringe = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.25), featherMaterial);
-      earFringe.position.set(-0.05, -0.12, 0);
-      rightEar.add(earFringe);
-      this.featherMeshes.push(earFringe);
-    }
-  }
-
-  private updateCanineKinematics(frame: ThreePetFrame): void {
+  private updateCanineKinematics(frame: ThreePetFrame, dt: number): void {
     if (this.gltfBones.size === 0) return;
 
     for (const [name, bone] of this.gltfBones) {
@@ -775,154 +640,241 @@ export class ThreePetRenderer {
       this.gltfBones.get("Dog_Tail_01_05SHJnt"),
     ].filter(Boolean) as THREE.Bone[];
 
-    const wagFreq = ["sit", "handshake", "hi-five", "feed", "treat"].includes(frame.behavior) ? 7 : 3.5;
-    const wagAmp = frame.behavior === "sleeping" ? 0.05 : 0.22;
-    tailBones.forEach((b, i) => {
-      b.rotateY(Math.sin(frame.time * wagFreq - i * 0.35) * wagAmp);
-    });
+    // Target positions and angles
+    let targetRootPosY = 0;
+    let targetRootPosZ = 0;
+    let targetSpine1Pitch = 0;
+    let targetSpine2Pitch = 0;
+    let targetSpineTopPitch = 0;
+    let targetSpineYaw = 0;
+    let targetNeck1Pitch = 0;
+    let targetNeckTopPitch = 0;
+    let targetNeckTopYaw = 0;
+    let targetJawOpen = 0;
+    let targetLeftFrontHip = 0;
+    let targetLeftFrontKnee = 0;
+    let targetLeftFrontAnkle = 0;
+    let targetRightFrontHip = 0;
+    let targetRightFrontKnee = 0;
+    let targetRightFrontAnkle = 0;
+    let targetLeftHindHip = 0;
+    let targetLeftHindKnee = 0;
+    let targetLeftHindAnkle = 0;
+    let targetRightHindHip = 0;
+    let targetRightHindKnee = 0;
+    let targetRightHindAnkle = 0;
+    let targetLeftEarX = 0;
+    let targetRightEarX = 0;
+    let targetLeftEarZ = 0;
+    let targetRightEarZ = 0;
 
     const behavior = frame.behavior;
 
     if (behavior === "walking") {
-      const cadence = 6.8;
+      const cadence = 6.2;
       const gait = Math.sin(frame.time * cadence);
       const gaitCos = Math.cos(frame.time * cadence);
 
-      leftFrontHip?.rotateX(gait * 0.44);
-      leftFrontKnee?.rotateX(Math.max(0, -gait) * 0.58);
-      leftFrontAnkle?.rotateX(gait * 0.2);
+      targetLeftFrontHip = gait * 0.42;
+      targetLeftFrontKnee = gait < 0 ? Math.sin(-gait * Math.PI * 0.5) * 0.54 : 0;
+      targetLeftFrontAnkle = gait * 0.18;
 
-      rightFrontHip?.rotateX(-gait * 0.44);
-      rightFrontKnee?.rotateX(Math.max(0, gait) * 0.58);
-      rightFrontAnkle?.rotateX(-gait * 0.2);
+      targetRightFrontHip = -gait * 0.42;
+      targetRightFrontKnee = gait > 0 ? Math.sin(gait * Math.PI * 0.5) * 0.54 : 0;
+      targetRightFrontAnkle = -gait * 0.18;
 
-      leftHindHip?.rotateX(-gait * 0.38);
-      leftHindKnee?.rotateX(Math.max(0, -gait) * 0.48);
-      leftHindAnkle?.rotateX(-gait * 0.18);
+      targetLeftHindHip = -gait * 0.36;
+      targetLeftHindKnee = gait > 0 ? Math.sin(gait * Math.PI * 0.5) * 0.44 : 0;
+      targetLeftHindAnkle = -gait * 0.16;
 
-      rightHindHip?.rotateX(gait * 0.38);
-      rightHindKnee?.rotateX(Math.max(0, gait) * 0.48);
-      rightHindAnkle?.rotateX(gait * 0.18);
+      targetRightHindHip = gait * 0.36;
+      targetRightHindKnee = gait < 0 ? Math.sin(-gait * Math.PI * 0.5) * 0.44 : 0;
+      targetRightHindAnkle = gait * 0.16;
 
-      spine1?.rotateY(gait * 0.06);
-      spine2?.rotateY(-gait * 0.04);
-      neckTop?.rotateX(Math.abs(gaitCos) * 0.08);
-
-      leftEar?.rotateX(Math.abs(gait) * 0.08);
-      rightEar?.rotateX(Math.abs(gait) * 0.08);
+      targetSpineYaw = gait * 0.05;
+      targetNeckTopPitch = Math.abs(gaitCos) * 0.06;
+      targetLeftEarX = Math.abs(gait) * 0.07;
+      targetRightEarX = Math.abs(gait) * 0.07;
     } else if (["running", "chasing", "fetch"].includes(behavior)) {
-      const speed = 12;
+      const speed = 11;
       const cycle = frame.time * speed;
+      const s1 = Math.sin(cycle);
+      const s2 = Math.sin(cycle + 0.3);
+      const s3 = Math.sin(cycle + 2.1);
+      const s4 = Math.sin(cycle + 2.4);
 
-      leftFrontHip?.rotateX(Math.sin(cycle) * 0.68);
-      leftFrontKnee?.rotateX(Math.max(0, -Math.sin(cycle)) * 0.65);
+      targetLeftFrontHip = s1 * 0.65;
+      targetLeftFrontKnee = s1 < 0 ? Math.sin(-s1 * Math.PI * 0.5) * 0.62 : 0;
 
-      rightFrontHip?.rotateX(Math.sin(cycle + 0.3) * 0.68);
-      rightFrontKnee?.rotateX(Math.max(0, -Math.sin(cycle + 0.3)) * 0.65);
+      targetRightFrontHip = s2 * 0.65;
+      targetRightFrontKnee = s2 < 0 ? Math.sin(-s2 * Math.PI * 0.5) * 0.62 : 0;
 
-      leftHindHip?.rotateX(Math.sin(cycle + 2.1) * 0.58);
-      leftHindKnee?.rotateX(Math.max(0, -Math.sin(cycle + 2.1)) * 0.52);
+      targetLeftHindHip = s3 * 0.55;
+      targetLeftHindKnee = s3 < 0 ? Math.sin(-s3 * Math.PI * 0.5) * 0.5 : 0;
 
-      rightHindHip?.rotateX(Math.sin(cycle + 2.4) * 0.58);
-      rightHindKnee?.rotateX(Math.max(0, -Math.sin(cycle + 2.4)) * 0.52);
+      targetRightHindHip = s4 * 0.55;
+      targetRightHindKnee = s4 < 0 ? Math.sin(-s4 * Math.PI * 0.5) * 0.5 : 0;
 
-      spine1?.rotateX(Math.sin(cycle) * 0.14);
-      neckTop?.rotateX(Math.sin(cycle) * 0.1);
+      targetSpine1Pitch = s1 * 0.12;
+      targetNeckTopPitch = s1 * 0.08;
     } else if (behavior === "sit") {
-      if (root) {
-        root.position.y -= 0.32;
-        root.position.z -= 0.12;
-      }
-      leftHindHip?.rotateX(0.85);
-      rightHindHip?.rotateX(0.85);
-      leftHindKnee?.rotateX(-1.1);
-      rightHindKnee?.rotateX(-1.1);
-      leftHindAnkle?.rotateX(0.48);
-      rightHindAnkle?.rotateX(0.48);
+      targetRootPosY = -0.32;
+      targetRootPosZ = -0.12;
+      targetLeftHindHip = 0.85;
+      targetRightHindHip = 0.85;
+      targetLeftHindKnee = -1.1;
+      targetRightHindKnee = -1.1;
+      targetLeftHindAnkle = 0.48;
+      targetRightHindAnkle = 0.48;
 
-      spine1?.rotateX(-0.38);
-      spine2?.rotateX(-0.25);
-      spineTop?.rotateX(-0.15);
+      targetSpine1Pitch = -0.38;
+      targetSpine2Pitch = -0.25;
+      targetSpineTopPitch = -0.15;
 
-      leftFrontHip?.rotateX(0.42);
-      rightFrontHip?.rotateX(0.42);
+      targetLeftFrontHip = 0.42;
+      targetRightFrontHip = 0.42;
 
-      neck1?.rotateX(-0.25);
-      neckTop?.rotateX(-0.15);
+      targetNeck1Pitch = -0.25;
+      targetNeckTopPitch = -0.15;
     } else if (behavior === "down" || behavior === "sleeping") {
-      if (root) {
-        root.position.y -= 0.44;
-      }
-      leftFrontHip?.rotateX(-0.65);
-      rightFrontHip?.rotateX(-0.65);
-      leftFrontKnee?.rotateX(0.3);
-      rightFrontKnee?.rotateX(0.3);
+      targetRootPosY = -0.44;
+      targetLeftFrontHip = -0.65;
+      targetRightFrontHip = -0.65;
+      targetLeftFrontKnee = 0.3;
+      targetRightFrontKnee = 0.3;
 
-      leftHindHip?.rotateX(0.6);
-      rightHindHip?.rotateX(0.6);
-      leftHindKnee?.rotateX(-0.8);
-      rightHindKnee?.rotateX(-0.8);
+      targetLeftHindHip = 0.6;
+      targetRightHindHip = 0.6;
+      targetLeftHindKnee = -0.8;
+      targetRightHindKnee = -0.8;
 
-      spine1?.rotateX(-0.12);
-      neck1?.rotateX(0.45);
-      neckTop?.rotateX(0.25);
+      targetSpine1Pitch = -0.12;
+      targetNeck1Pitch = 0.45;
+      targetNeckTopPitch = 0.25;
     } else if (["handshake", "hi-five", "salute", "namaste"].includes(behavior)) {
-      if (root) {
-        root.position.y -= 0.32;
-        root.position.z -= 0.12;
-      }
-      leftHindHip?.rotateX(0.85);
-      rightHindHip?.rotateX(0.85);
-      leftHindKnee?.rotateX(-1.1);
-      rightHindKnee?.rotateX(-1.1);
+      targetRootPosY = -0.32;
+      targetRootPosZ = -0.12;
+      targetLeftHindHip = 0.85;
+      targetRightHindHip = 0.85;
+      targetLeftHindKnee = -1.1;
+      targetRightHindKnee = -1.1;
 
-      spine1?.rotateX(-0.4);
-      spine2?.rotateX(-0.25);
-
-      leftFrontHip?.rotateX(0.42);
+      targetSpine1Pitch = -0.4;
+      targetSpine2Pitch = -0.25;
+      targetLeftFrontHip = 0.42;
 
       const lift = behavior === "hi-five" ? -1.25 : behavior === "salute" ? -1.1 : -0.95;
-      rightFrontHip?.rotateX(lift);
-      rightFrontKnee?.rotateX(0.48);
-      rightFrontAnkle?.rotateX(-0.35);
+      targetRightFrontHip = lift;
+      targetRightFrontKnee = 0.48;
+      targetRightFrontAnkle = -0.35;
 
-      neckTop?.rotateY(0.12);
-      neckTop?.rotateZ(-0.1);
+      targetNeckTopYaw = 0.12;
     } else if (behavior === "speak") {
       const barkPulse = Math.max(0, Math.sin(frame.time * 15));
-      jaw?.rotateX(barkPulse * 0.45);
-      neckTop?.rotateX(-barkPulse * 0.15);
+      targetJawOpen = barkPulse * 0.45;
+      targetNeckTopPitch = -barkPulse * 0.15;
     } else if (behavior === "feed" || behavior === "treat") {
-      neck1?.rotateX(0.35);
-      neckTop?.rotateX(0.22);
-      const chew = Math.max(0, Math.sin(frame.time * 10)) * 0.22;
-      jaw?.rotateX(chew);
+      targetNeck1Pitch = 0.35;
+      targetNeckTopPitch = 0.22;
+      targetJawOpen = Math.max(0, Math.sin(frame.time * 10)) * 0.22;
     } else if (behavior === "surprise") {
       const spinStep = Math.sin(frame.progress * Math.PI * 14);
-      leftFrontHip?.rotateX(spinStep * 0.35);
-      rightFrontHip?.rotateX(-spinStep * 0.35);
-      leftHindHip?.rotateX(-spinStep * 0.32);
-      rightHindHip?.rotateX(spinStep * 0.32);
-      spine1?.rotateY(0.15);
+      targetLeftFrontHip = spinStep * 0.35;
+      targetRightFrontHip = -spinStep * 0.35;
+      targetLeftHindHip = -spinStep * 0.32;
+      targetRightHindHip = spinStep * 0.32;
+      targetSpineYaw = 0.15;
     } else if (behavior === "roll-over") {
       const p = frame.progress;
       if (p >= 0.22 && p <= 0.78) {
-        leftFrontHip?.rotateX(-0.65);
-        rightFrontHip?.rotateX(-0.65);
-        leftFrontKnee?.rotateX(0.7);
-        rightFrontKnee?.rotateX(0.7);
-
-        leftHindHip?.rotateX(0.6);
-        rightHindHip?.rotateX(0.6);
-        leftHindKnee?.rotateX(-0.8);
-        rightHindKnee?.rotateX(-0.8);
+        targetLeftFrontHip = -0.65;
+        targetRightFrontHip = -0.65;
+        targetLeftFrontKnee = 0.7;
+        targetRightFrontKnee = 0.7;
+        targetLeftHindHip = 0.6;
+        targetRightHindHip = 0.6;
+        targetLeftHindKnee = -0.8;
+        targetRightHindKnee = -0.8;
       }
     } else {
-      neckTop?.rotateY(Math.sin(frame.time * 1.2) * 0.1);
-      neckTop?.rotateX(Math.sin(frame.time * 0.9) * 0.05);
-      leftEar?.rotateZ(Math.sin(frame.time * 2.2) * 0.06);
-      rightEar?.rotateZ(-Math.sin(frame.time * 2.2) * 0.06);
+      // Idle
+      targetNeckTopYaw = Math.sin(frame.time * 1.2) * 0.1;
+      targetNeckTopPitch = Math.sin(frame.time * 0.9) * 0.05;
+      targetLeftEarZ = Math.sin(frame.time * 2.2) * 0.06;
+      targetRightEarZ = -Math.sin(frame.time * 2.2) * 0.06;
     }
+
+    // Exponential smoothing for buttery motion:
+    const k = 11.0;
+    this.currentRootPosY = smoothDamp(this.currentRootPosY, targetRootPosY, k, dt);
+    this.currentRootPosZ = smoothDamp(this.currentRootPosZ, targetRootPosZ, k, dt);
+    this.currentSpine1Pitch = smoothDamp(this.currentSpine1Pitch, targetSpine1Pitch, k, dt);
+    this.currentSpine2Pitch = smoothDamp(this.currentSpine2Pitch, targetSpine2Pitch, k, dt);
+    this.currentSpineTopPitch = smoothDamp(this.currentSpineTopPitch, targetSpineTopPitch, k, dt);
+    this.currentSpineYaw = smoothDamp(this.currentSpineYaw, targetSpineYaw, k, dt);
+    this.currentNeck1Pitch = smoothDamp(this.currentNeck1Pitch, targetNeck1Pitch, k, dt);
+    this.currentNeckTopPitch = smoothDamp(this.currentNeckTopPitch, targetNeckTopPitch, k, dt);
+    this.currentNeckTopYaw = smoothDamp(this.currentNeckTopYaw, targetNeckTopYaw, k, dt);
+    this.currentJawOpen = smoothDamp(this.currentJawOpen, targetJawOpen, k * 1.5, dt);
+    this.currentLeftFrontHip = smoothDamp(this.currentLeftFrontHip, targetLeftFrontHip, k * 1.2, dt);
+    this.currentLeftFrontKnee = smoothDamp(this.currentLeftFrontKnee, targetLeftFrontKnee, k * 1.2, dt);
+    this.currentLeftFrontAnkle = smoothDamp(this.currentLeftFrontAnkle, targetLeftFrontAnkle, k * 1.2, dt);
+    this.currentRightFrontHip = smoothDamp(this.currentRightFrontHip, targetRightFrontHip, k * 1.2, dt);
+    this.currentRightFrontKnee = smoothDamp(this.currentRightFrontKnee, targetRightFrontKnee, k * 1.2, dt);
+    this.currentRightFrontAnkle = smoothDamp(this.currentRightFrontAnkle, targetRightFrontAnkle, k * 1.2, dt);
+    this.currentLeftHindHip = smoothDamp(this.currentLeftHindHip, targetLeftHindHip, k * 1.2, dt);
+    this.currentLeftHindKnee = smoothDamp(this.currentLeftHindKnee, targetLeftHindKnee, k * 1.2, dt);
+    this.currentLeftHindAnkle = smoothDamp(this.currentLeftHindAnkle, targetLeftHindAnkle, k * 1.2, dt);
+    this.currentRightHindHip = smoothDamp(this.currentRightHindHip, targetRightHindHip, k * 1.2, dt);
+    this.currentRightHindKnee = smoothDamp(this.currentRightHindKnee, targetRightHindKnee, k * 1.2, dt);
+    this.currentRightHindAnkle = smoothDamp(this.currentRightHindAnkle, targetRightHindAnkle, k * 1.2, dt);
+    this.currentLeftEarX = smoothDamp(this.currentLeftEarX, targetLeftEarX, k, dt);
+    this.currentRightEarX = smoothDamp(this.currentRightEarX, targetRightEarX, k, dt);
+    this.currentLeftEarZ = smoothDamp(this.currentLeftEarZ, targetLeftEarZ, k, dt);
+    this.currentRightEarZ = smoothDamp(this.currentRightEarZ, targetRightEarZ, k, dt);
+
+    // Apply smoothed transforms to bones
+    if (root) {
+      root.position.y += this.currentRootPosY;
+      root.position.z += this.currentRootPosZ;
+    }
+    spine1?.rotateX(this.currentSpine1Pitch);
+    spine1?.rotateY(this.currentSpineYaw);
+    spine2?.rotateX(this.currentSpine2Pitch);
+    spineTop?.rotateX(this.currentSpineTopPitch);
+
+    neck1?.rotateX(this.currentNeck1Pitch);
+    neckTop?.rotateX(this.currentNeckTopPitch);
+    neckTop?.rotateY(this.currentNeckTopYaw);
+    jaw?.rotateX(this.currentJawOpen);
+
+    leftFrontHip?.rotateX(this.currentLeftFrontHip);
+    leftFrontKnee?.rotateX(this.currentLeftFrontKnee);
+    leftFrontAnkle?.rotateX(this.currentLeftFrontAnkle);
+
+    rightFrontHip?.rotateX(this.currentRightFrontHip);
+    rightFrontKnee?.rotateX(this.currentRightFrontKnee);
+    rightFrontAnkle?.rotateX(this.currentRightFrontAnkle);
+
+    leftHindHip?.rotateX(this.currentLeftHindHip);
+    leftHindKnee?.rotateX(this.currentLeftHindKnee);
+    leftHindAnkle?.rotateX(this.currentLeftHindAnkle);
+
+    rightHindHip?.rotateX(this.currentRightHindHip);
+    rightHindKnee?.rotateX(this.currentRightHindKnee);
+    rightHindAnkle?.rotateX(this.currentRightHindAnkle);
+
+    leftEar?.rotateX(this.currentLeftEarX);
+    leftEar?.rotateZ(this.currentLeftEarZ);
+    rightEar?.rotateX(this.currentRightEarX);
+    rightEar?.rotateZ(this.currentRightEarZ);
+
+    // Dynamic tail wag
+    const wagFreq = ["sit", "handshake", "hi-five", "feed", "treat"].includes(behavior) ? 7 : 3.5;
+    const wagAmp = behavior === "sleeping" ? 0.05 : 0.22;
+    tailBones.forEach((b, i) => {
+      b.rotateY(Math.sin(frame.time * wagFreq - i * 0.35) * wagAmp);
+    });
   }
 
   private buildBody(): void {
