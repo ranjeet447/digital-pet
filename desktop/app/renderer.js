@@ -10,6 +10,8 @@ function persistState() {
     name: pet.getAttribute("name") || "Shiro",
     renderer: pet.getAttribute("renderer") || "3d",
     size: pet.getAttribute("size") || "normal",
+    breed: pet.getAttribute("breed") || "golden-retriever",
+    activity: pet.getAttribute("activity") || "calm",
     sound: pet.getAttribute("sound") === "true",
     hidden: !pet.isVisible,
   };
@@ -23,6 +25,8 @@ function restoreState() {
     if (state.name) pet.setAttribute("name", state.name);
     if (state.renderer === "2d" || state.renderer === "3d") pet.setAttribute("renderer", state.renderer);
     if (state.size) pet.setAttribute("size", state.size);
+    if (state.breed) pet.setAttribute("breed", state.breed);
+    if (state.activity) pet.setAttribute("activity", state.activity);
     if (typeof state.sound === "boolean") pet.setAttribute("sound", String(state.sound));
     if (state.hidden) pet.hide();
   } catch {
@@ -75,6 +79,8 @@ window.addEventListener("blur", () => {
 
 pet.addEventListener("digital-pet-size-change", persistState);
 pet.addEventListener("digital-pet-renderer-change", persistState);
+pet.addEventListener("digital-pet-breed-change", persistState);
+pet.addEventListener("digital-pet-activity-change", persistState);
 pet.addEventListener("digital-pet-command", persistState);
 pet.addEventListener("digital-pet-visibility-change", persistState);
 pet.addEventListener("digital-pet-name-change", persistState);
@@ -82,7 +88,7 @@ pet.addEventListener("digital-pet-name-change", persistState);
 const observer = new MutationObserver(persistState);
 observer.observe(pet, {
   attributes: true,
-  attributeFilter: ["name", "renderer", "size", "sound", "hidden", "style"],
+  attributeFilter: ["name", "renderer", "size", "sound", "hidden", "breed", "activity", "style"],
 });
 
 desktop.onAction((action) => {
@@ -95,6 +101,12 @@ desktop.onAction((action) => {
       break;
     case "size":
       pet.setSize(action.size);
+      break;
+    case "breed":
+      pet.setBreed(action.breed);
+      break;
+    case "activity":
+      pet.setActivity(action.activity);
       break;
     case "renderer":
       pet.setRenderer(action.renderer);

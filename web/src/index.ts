@@ -1384,7 +1384,7 @@ export class DigitalPetElement extends HTMLElement {
       canvas.style.height = `${this.displayHeight}px`;
     }
     this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    this.threeRenderer?.resize();
+    this.threeRenderer?.resize(this.displayWidth, this.displayHeight);
   }
 
   private initializeRenderer(): void {

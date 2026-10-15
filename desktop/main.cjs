@@ -29,12 +29,30 @@ const SIZES = [
   ["extra-large", "Extra Large (150%)"],
 ];
 
+const BREEDS = [
+  ["golden-retriever", "Golden Retriever"],
+  ["black-labrador", "Black Labrador"],
+  ["chocolate-labrador", "Chocolate Labrador"],
+  ["husky", "Siberian Husky"],
+  ["german-shepherd", "German Shepherd"],
+  ["shiba-inu", "Shiba Inu"],
+];
+
+const ACTIVITIES = [
+  ["calm", "Calm (Gentle)"],
+  ["normal", "Normal Pace"],
+  ["playful", "Playful"],
+  ["manual", "Manual (Still)"],
+];
+
 let petWindow;
 let tray;
 let state = {
   name: "Shiro",
   renderer: "3d",
   size: "normal",
+  breed: "golden-retriever",
+  activity: "calm",
   sound: false,
   hidden: false,
 };
@@ -73,6 +91,18 @@ function rebuildTrayMenu() {
     checked: state.size === size,
     click: () => sendAction({ type: "size", size }),
   }));
+  const breedMenu = BREEDS.map(([breed, label]) => ({
+    label,
+    type: "radio",
+    checked: state.breed === breed,
+    click: () => sendAction({ type: "breed", breed }),
+  }));
+  const activityMenu = ACTIVITIES.map(([activity, label]) => ({
+    label,
+    type: "radio",
+    checked: state.activity === activity,
+    click: () => sendAction({ type: "activity", activity }),
+  }));
 
   tray.setToolTip(`${state.name} - Digital Pet`);
   tray.setContextMenu(
@@ -85,6 +115,8 @@ function rebuildTrayMenu() {
       { label: "Random Trick", click: () => sendAction({ type: "random-trick" }) },
       { label: "Take a Nap in Corner", click: () => sendAction({ type: "command", command: "sleep" }) },
       { type: "separator" },
+      { label: "Breed", submenu: breedMenu },
+      { label: "Activity Pace", submenu: activityMenu },
       { label: "All Tricks & Commands", submenu: commandMenu },
       { label: "Size", submenu: sizeMenu },
       {

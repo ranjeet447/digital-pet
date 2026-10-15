@@ -994,10 +994,10 @@ export class ThreePetRenderer {
     this.renderer.render(this.scene, this.camera);
   }
 
-  resize(): void {
+  resize(width = 220, height = 180): void {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    this.renderer.setSize(220, 180, false);
-    this.camera.aspect = 220 / 180;
+    this.renderer.setSize(width, height, false);
+    this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
   }
 
