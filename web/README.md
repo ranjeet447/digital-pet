@@ -48,7 +48,7 @@ Use the hosted ES module without a package manager:
 ```html
 <script
   type="module"
-  src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet-v0.3.0.js"
+  src="https://ranjeet447.github.io/digital-pet/downloads/digital-pet-v0.4.0.js"
 ></script>
 
 <digital-pet renderer="3d" controls="true"></digital-pet>

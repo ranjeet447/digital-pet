@@ -10,16 +10,14 @@ Shiro stays above normal app windows, walks and runs around the screen, follows
 the pointer, performs tricks, plays with balls, asks for food, accepts treats,
 barks when sounds are enabled, and takes naps in a corner.
 
-## Version 0.3.0
+## Version 0.4.0
 
-- Cleaner 3D golden retriever model with a textured warm coat
-- Golden retriever anatomy with a broad muzzle, feathered ears, chest ruff, large
-  paws, plumed tail, and Shiro's red collar
-- Interactive floppy ear secondary spring-damping physics
-- More autonomous play: fetch, barking, surprise tricks, food requests, quiet
-  watching, movement, and corner naps
-- Five persistent sizes including a new "Extra Small 50%" option
-- Web and Desktop client bundle builds updated
+- 6 authentic canine breeds (Golden Retriever, Black Lab, Chocolate Lab, Siberian Husky, German Shepherd, Shiba Inu) with anatomical silhouettes, vertex markings, and custom coat colors
+- Prominently visible front paw trick kinematics for handshake, hi-five, salute, and namaste with organic cosine S-curve easing envelopes
+- Three.js skeletal crossFadeFrom blending and direction deadbands for rock-solid kinematics with zero helicopter spinning or body flutter
+- Instantaneous Activity Level controls (Calm, Normal, Playful, Manual) and barking vocalization rate presets
+- High-DPI dynamic buffer scaling for pin-sharp rendering up to 150% size
+- Cross-platform Electron desktop app updated with Breed and Activity Pace tray menus
 
 ## Install on a Website
 
@@ -45,7 +43,7 @@ instructions are in [`web/README.md`](web/README.md).
 
 ## Desktop Downloads
 
-The `v0.3.0` GitHub Release contains:
+The `v0.4.0` GitHub Release contains:
 
 - macOS Apple Silicon zip
 - macOS Intel zip
@@ -108,7 +106,7 @@ macOS, Windows, Linux, and web features remain identical.
 
 - [`docs/platform-feature-contract.md`](docs/platform-feature-contract.md)
 - [`docs/release-plan.md`](docs/release-plan.md)
-- [`docs/release-notes-v0.3.0.md`](docs/release-notes-v0.3.0.md)
+- [`docs/release-notes-v0.4.0.md`](docs/release-notes-v0.4.0.md)
 
 ## License
 
