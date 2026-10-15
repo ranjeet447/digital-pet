@@ -82,37 +82,14 @@ export class ThreePetRenderer {
   private readonly gltfBones = new Map<string, THREE.Bone>();
   private readonly initialBoneRotations = new Map<string, THREE.Euler>();
   private readonly initialBonePositions = new Map<string, THREE.Vector3>();
+  private mixer: THREE.AnimationMixer | null = null;
+  private readonly animationActions = new Map<string, THREE.AnimationAction>();
+  private currentActionName = "";
   private dogMesh: THREE.SkinnedMesh | null = null;
-  private currentModelRotationY = -0.94;
-  private currentRootPosY = 0;
-  private currentRootPosZ = 0;
-  private currentSpine1Pitch = 0;
-  private currentSpine2Pitch = 0;
-  private currentSpineTopPitch = 0;
-  private currentSpineYaw = 0;
-  private currentNeck1Pitch = 0;
-  private currentNeckTopPitch = 0;
-  private currentNeckTopYaw = 0;
-  private currentJawOpen = 0;
-  private currentLeftFrontHip = 0;
-  private currentLeftFrontKnee = 0;
-  private currentLeftFrontAnkle = 0;
-  private currentRightFrontHip = 0;
-  private currentRightFrontKnee = 0;
-  private currentRightFrontAnkle = 0;
-  private currentLeftHindHip = 0;
-  private currentLeftHindKnee = 0;
-  private currentLeftHindAnkle = 0;
-  private currentRightHindHip = 0;
-  private currentRightHindKnee = 0;
-  private currentRightHindAnkle = 0;
-  private currentLeftEarX = 0;
-  private currentRightEarX = 0;
-  private currentLeftEarZ = 0;
-  private currentRightEarZ = 0;
+  private currentModelRotationY = 0.45;
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.OrthographicCamera(-2.3, 2.3, 1.82, -1.72, 0.1, 30);
+  private readonly camera = new THREE.PerspectiveCamera(40, 220 / 180, 0.1, 50);
   private readonly root = new THREE.Group();
   private readonly body = new THREE.Group();
   private readonly head = new THREE.Group();
@@ -236,37 +213,41 @@ export class ThreePetRenderer {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
 
-    this.camera.position.set(5.4, 3.2, 7.4);
-    this.camera.lookAt(0.1, 1.05, 0);
+    this.camera.position.set(0, 0.95, 2.2);
+    this.camera.lookAt(0, 0.35, 0);
 
-    const hemisphere = new THREE.HemisphereLight(0xfff6eb, 0x6e4e32, 2.4);
+    const hemisphere = new THREE.HemisphereLight(0xfff6eb, 0x6e4e32, 2.5);
     this.scene.add(hemisphere);
 
-    const key = new THREE.DirectionalLight(0xfffaef, 3.6);
-    key.position.set(4, 7, 5);
+    const key = new THREE.DirectionalLight(0xfffaef, 3.2);
+    key.position.set(2.5, 4.5, 3.2);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
-    key.shadow.camera.left = -4;
-    key.shadow.camera.right = 4;
-    key.shadow.camera.top = 4;
-    key.shadow.camera.bottom = -2;
+    key.shadow.camera.left = -2;
+    key.shadow.camera.right = 2;
+    key.shadow.camera.top = 2;
+    key.shadow.camera.bottom = -1;
     this.scene.add(key);
 
+    const fill = new THREE.DirectionalLight(0xffeedb, 1.4);
+    fill.position.set(-2, 1.5, 2);
+    this.scene.add(fill);
+
     // Dedicated Eye & Face light for crisp catchlights, dark pupils, and wet nose
-    const faceLight = new THREE.DirectionalLight(0xffffff, 2.4);
-    faceLight.position.set(5.4, 3.8, 7.4);
+    const faceLight = new THREE.DirectionalLight(0xffffff, 2.2);
+    faceLight.position.set(0, 1.8, 2.5);
     this.scene.add(faceLight);
 
-    const rim = new THREE.DirectionalLight(0xffd8b0, 1.8);
-    rim.position.set(-4, 3, -4);
+    const rim = new THREE.DirectionalLight(0xffd8b0, 1.4);
+    rim.position.set(-1, 3, -2);
     this.scene.add(rim);
 
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(5.4, 2.3),
+      new THREE.PlaneGeometry(5, 5),
       new THREE.ShadowMaterial({ color: 0x4a2d1b, opacity: 0.22 }),
     );
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.03;
+    ground.position.y = 0;
     ground.receiveShadow = true;
     this.scene.add(ground);
 
@@ -296,108 +277,112 @@ export class ThreePetRenderer {
     const dt = this.lastTime === 0 ? 0.016 : Math.min(0.1, frame.time - this.lastTime);
     this.lastTime = frame.time;
 
-    if (this.isModelLoaded && this.gltfModel) {
-      this.updateCanineKinematics(frame, dt);
-
-      // Precise canine headings in camera view
-      // Head points along +Z in model space
-      const walkAngle = frame.facing > 0 ? 2.19 : -0.95;
-      // Front 3/4 beauty view: canine body angled, but face and both eyes looking warmly towards camera
-      const beautyAngle = frame.facing > 0 ? 0.78 : 0.46;
-      // Direct front-on contact angle for intimate tricks
-      const directAngle = 0.62;
-
-      let targetRotY = beautyAngle;
-      let targetRotZ = 0;
-      let targetPosY = 0;
-
-      if (["walking", "running", "chasing"].includes(frame.behavior)) {
-        targetRotY = walkAngle;
-        const gaitFreq = frame.behavior === "walking" ? 6.2 : 11.5;
-        targetPosY = Math.abs(Math.sin(frame.time * gaitFreq)) * 0.02;
+    if (this.isModelLoaded && this.gltfModel && this.mixer) {
+      // Determine target skeletal animation clip from behavior
+      let targetClip = "stand";
+      if (frame.behavior === "walking") {
+        targetClip = "walk";
+      } else if (["running", "chasing"].includes(frame.behavior)) {
+        targetClip = "run";
+      } else if (frame.behavior === "sit") {
+        targetClip = "sit";
+      } else if (frame.behavior === "down") {
+        targetClip = "lie";
+      } else if (frame.behavior === "sleeping") {
+        targetClip = "nap";
+      } else if (frame.behavior === "speak") {
+        targetClip = "bark";
       } else if (frame.behavior === "fetch") {
-        if (frame.progress < 0.6) {
-          targetRotY = -0.95; // chase ball to left
-          targetPosY = Math.abs(Math.sin(frame.time * 11.5)) * 0.02;
-        } else {
-          targetRotY = beautyAngle; // trot back with ball
-        }
-      } else if (["namaste", "speak", "ask-food", "handshake", "hi-five", "salute"].includes(frame.behavior)) {
-        targetRotY = directAngle;
-      } else if (["sit", "idle", "feed", "treat"].includes(frame.behavior)) {
-        targetRotY = beautyAngle;
-      } else if (["down", "sleeping"].includes(frame.behavior)) {
-        targetRotY = beautyAngle;
+        targetClip = frame.progress < 0.6 ? "run" : "walk";
+      } else if (frame.behavior === "feed") {
+        targetClip = "sniff";
+      } else if (["treat", "surprise"].includes(frame.behavior)) {
+        targetClip = "wag";
+      } else if (["handshake", "hi-five", "salute", "namaste", "ask-food", "quiet"].includes(frame.behavior)) {
+        targetClip = "sit";
+      } else if (frame.behavior === "jump") {
+        targetClip = "run";
+      } else if (frame.behavior === "roll-over") {
+        targetClip = "lie";
+      } else {
+        targetClip = "wag";
+      }
+
+      this.playAction(targetClip, 0.22);
+      this.mixer.update(dt);
+
+      // Natural canine facing angle in beauty view
+      let targetRotY = frame.facing >= 0 ? 0.55 : -0.55;
+      if (frame.behavior === "walking" || frame.behavior === "running" || frame.behavior === "chasing") {
+        targetRotY = frame.facing >= 0 ? 1.35 : -1.35;
+      }
+
+      this.currentModelRotationY = smoothDamp(this.currentModelRotationY, targetRotY, 9.0, dt);
+      this.gltfModel.rotation.y = this.currentModelRotationY;
+
+      // Vertical hop for jump & roll along Z for roll-over
+      if (frame.behavior === "jump") {
+        const jumpProgress = frame.progress;
+        this.gltfModel.position.y = Math.sin(jumpProgress * Math.PI) * 0.35;
+      } else if (frame.behavior === "roll-over") {
+        const rollProgress = frame.progress;
+        this.gltfModel.rotation.z = Math.sin(rollProgress * Math.PI * 2) * (frame.facing >= 0 ? -1 : 1);
+        this.gltfModel.position.y = Math.sin(rollProgress * Math.PI) * 0.08;
       } else if (frame.behavior === "surprise") {
-        const baseAngle = walkAngle;
-        const spinProgress = frame.progress;
-        this.currentModelRotationY = baseAngle + spinProgress * Math.PI * 2;
-        this.gltfModel.rotation.y = this.currentModelRotationY;
-        this.gltfModel.rotation.x = 0;
+        this.gltfModel.rotation.y = this.currentModelRotationY + frame.progress * Math.PI * 2;
+        this.gltfModel.position.y = Math.sin(frame.progress * Math.PI) * 0.15;
+      } else {
         this.gltfModel.rotation.z = 0;
         this.gltfModel.position.y = 0;
-        if (spinProgress >= 1.0) {
-          this.currentModelRotationY = baseAngle;
-        }
-      } else if (frame.behavior === "roll-over") {
-        targetRotY = beautyAngle;
-        const p = frame.progress;
-        if (p < 0.20) {
-          targetPosY = -0.38 * (p / 0.20);
-          targetRotZ = 0;
-        } else if (p < 0.80) {
-          const rollPhase = (p - 0.20) / 0.60;
-          targetPosY = -0.38 + Math.sin(rollPhase * Math.PI) * 0.08;
-          targetRotZ = rollPhase * Math.PI * 2; // Natural roll along body Z-axis!
-        } else {
-          targetPosY = -0.38 * (1 - (p - 0.80) / 0.20);
-          targetRotZ = 0;
-        }
-      } else if (frame.behavior === "jump") {
-        targetRotY = beautyAngle;
-        const p = frame.progress;
-        if (p < 0.20) {
-          targetPosY = -0.15 * (p / 0.20);
-        } else if (p < 0.80) {
-          const jumpPhase = (p - 0.20) / 0.60;
-          targetPosY = Math.sin(jumpPhase * Math.PI) * 0.72;
-        } else {
-          targetPosY = -0.15 * (1 - (p - 0.80) / 0.20);
-        }
       }
 
-      if (frame.behavior !== "surprise") {
-        this.currentModelRotationY = smoothDamp(this.currentModelRotationY, targetRotY, 8.5, dt);
-        this.gltfModel.rotation.y = this.currentModelRotationY;
-        this.gltfModel.rotation.x = 0;
-        this.gltfModel.rotation.z = smoothDamp(this.gltfModel.rotation.z, targetRotZ, 10.0, dt);
-        this.gltfModel.position.y = smoothDamp(this.gltfModel.position.y, targetPosY, 12.0, dt);
+      // Additive trick bone adjustments for front paws & head
+      const frontPawR = this.gltfBones.get("front_upper_R");
+      const frontPawL = this.gltfBones.get("front_upper_L");
+      const head = this.gltfBones.get("head");
+
+      if (frame.behavior === "handshake" && frontPawR) {
+        frontPawR.rotation.x += 0.85;
+      } else if (frame.behavior === "hi-five" && frontPawR) {
+        frontPawR.rotation.x += 1.45;
+      } else if (frame.behavior === "salute" && frontPawR) {
+        frontPawR.rotation.x += 1.6;
+        frontPawR.rotation.z -= 0.35;
+      } else if (frame.behavior === "namaste" && frontPawR && frontPawL) {
+        frontPawR.rotation.x += 1.15;
+        frontPawR.rotation.z -= 0.3;
+        frontPawL.rotation.x += 1.15;
+        frontPawL.rotation.z += 0.3;
+      } else if (frame.behavior === "ask-food" && head) {
+        head.rotation.z += Math.sin(frame.time * 4) * 0.18 + 0.22;
       }
 
-      this.balls.forEach((ball) => {
-        ball.visible = ["idle", "sleeping", "sit"].includes(frame.behavior);
-      });
+      // Interactive props (fetch ball, food bowl, treat)
       if (frame.behavior === "fetch") {
         this.fetchBall.visible = true;
         (this.fetchBall.material as THREE.MeshStandardMaterial).color.set(frame.ballColor);
         if (frame.progress < 0.6) {
           const flight = frame.progress / 0.6;
-          this.fetchBall.position.set(-2.2 + flight * 2.55, 0.25 + Math.sin(flight * Math.PI) * 1.5, 0.6 + flight * 0.65);
+          this.fetchBall.position.set(-0.9 + flight * 1.4, 0.15 + Math.sin(flight * Math.PI) * 0.8, 0.4 + flight * 0.3);
         } else {
-          this.fetchBall.position.set(0.35, 1.30, 1.25);
+          this.fetchBall.position.set(0.12, 0.38, 0.52);
         }
       } else {
         this.fetchBall.visible = false;
       }
+
       if (frame.behavior === "feed") {
         this.foodBowl.visible = true;
-        this.foodBowl.position.set(0.35, 0.05, 1.15);
+        this.foodBowl.position.set(0.15, 0.03, 0.45);
+        this.foodBowl.scale.setScalar(0.4);
       } else {
         this.foodBowl.visible = false;
       }
+
       if (frame.behavior === "treat") {
         this.treat.visible = true;
-        this.treat.position.set(0.35, 1.35, 1.25);
+        this.treat.position.set(0.15, 0.48, 0.48);
+        this.treat.scale.setScalar(0.4);
       } else {
         this.treat.visible = false;
       }
@@ -534,9 +519,17 @@ export class ThreePetRenderer {
   resize(): void {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setSize(220, 180, false);
+    this.camera.aspect = 220 / 180;
+    this.camera.updateProjectionMatrix();
   }
 
   dispose(): void {
+    this.animationActions.clear();
+    this.currentActionName = "";
+    if (this.mixer) {
+      this.mixer.stopAllAction();
+      this.mixer = null;
+    }
     this.gltfBones.clear();
     this.initialBoneRotations.clear();
     this.initialBonePositions.clear();
@@ -554,6 +547,20 @@ export class ThreePetRenderer {
     this.renderer.dispose();
   }
 
+  private playAction(name: string, fadeDuration = 0.22): void {
+    if (this.currentActionName === name) return;
+    const nextAction = this.animationActions.get(name);
+    if (!nextAction) return;
+
+    const prevAction = this.currentActionName ? this.animationActions.get(this.currentActionName) : null;
+    if (prevAction && prevAction !== nextAction) {
+      prevAction.fadeOut(fadeDuration);
+    }
+
+    nextAction.reset().fadeIn(fadeDuration).play();
+    this.currentActionName = name;
+  }
+
   async loadGLTFModel(url: string): Promise<boolean> {
     const loader = new GLTFLoader();
     try {
@@ -562,6 +569,12 @@ export class ThreePetRenderer {
         this.scene.remove(this.gltfModel);
         this.gltfModel = null;
       }
+      if (this.mixer) {
+        this.mixer.stopAllAction();
+        this.mixer = null;
+      }
+      this.animationActions.clear();
+      this.currentActionName = "";
       this.gltfBones.clear();
       this.initialBoneRotations.clear();
       this.initialBonePositions.clear();
@@ -569,57 +582,113 @@ export class ThreePetRenderer {
 
       this.gltfModel = gltf.scene;
 
-      const box = new THREE.Box3().setFromObject(this.gltfModel);
-      const size = new THREE.Vector3();
-      box.getSize(size);
-      const maxDim = Math.max(size.x, size.y, size.z);
-      // Large, prominent retriever size filling canvas naturally in all scales:
-      const targetSpan = 3.85;
-      const scale = targetSpan / (maxDim || 1);
-      this.gltfModel.scale.setScalar(scale);
-
-      const center = new THREE.Vector3();
-      box.getCenter(center);
-      this.gltfModel.position.set(-center.x * scale, -box.min.y * scale - 0.04, -center.z * scale);
-
+      // Apply dedicated physical Golden Retriever materials to each slot
       this.gltfModel.traverse((node) => {
+        if (node instanceof THREE.Mesh) {
+          node.castShadow = true;
+          node.receiveShadow = true;
+          if (node.material) {
+            const mats = Array.isArray(node.material) ? node.material : [node.material];
+            const newMats = mats.map((m) => {
+              const name = m.name;
+              if (name === "Fur") {
+                return new THREE.MeshStandardMaterial({
+                  color: 0xd9822b, // warm golden retriever amber coat
+                  roughness: 0.65,
+                  metalness: 0.0,
+                });
+              }
+              if (name === "Light") {
+                return new THREE.MeshStandardMaterial({
+                  color: 0xf6dfbe, // soft cream chest feathering & paw socks
+                  roughness: 0.7,
+                  metalness: 0.0,
+                });
+              }
+              if (name === "Ear") {
+                return new THREE.MeshStandardMaterial({
+                  color: 0xb5631b, // velvety honey-golden ears
+                  roughness: 0.65,
+                  metalness: 0.0,
+                });
+              }
+              if (name === "Ink") {
+                return new THREE.MeshStandardMaterial({
+                  color: 0x080605, // deep glossy canine eyes
+                  roughness: 0.08,
+                  metalness: 0.0,
+                });
+              }
+              if (name === "Shine") {
+                return new THREE.MeshBasicMaterial({
+                  color: 0xffffff, // pure specular eye catchlight
+                });
+              }
+              if (name === "Nose") {
+                return new THREE.MeshStandardMaterial({
+                  color: 0x110e0c, // wet black leathery nose
+                  roughness: 0.2,
+                  metalness: 0.0,
+                });
+              }
+              if (name === "Tongue") {
+                return new THREE.MeshStandardMaterial({
+                  color: 0xed6378, // healthy pink tongue
+                  roughness: 0.4,
+                  metalness: 0.0,
+                });
+              }
+              if (name === "Collar") {
+                return new THREE.MeshStandardMaterial({
+                  color: 0xc92a2a, // ruby red collar
+                  roughness: 0.4,
+                  metalness: 0.0,
+                });
+              }
+              if (name === "Tag") {
+                return new THREE.MeshStandardMaterial({
+                  color: 0xf59e0b, // bright gold medal tag
+                  metalness: 0.85,
+                  roughness: 0.25,
+                });
+              }
+              return m;
+            });
+            node.material = Array.isArray(node.material) ? newMats : newMats[0];
+          }
+        }
         if (node instanceof THREE.Bone) {
           this.gltfBones.set(node.name, node);
           this.initialBoneRotations.set(node.name, node.rotation.clone());
           this.initialBonePositions.set(node.name, node.position.clone());
         }
-        if (node instanceof THREE.SkinnedMesh) {
-          this.dogMesh = node;
-          node.castShadow = true;
-          node.receiveShadow = true;
-          if (node.material instanceof THREE.MeshStandardMaterial) {
-            // Keep the authentic canine facial texture with sharp dark eyes, black wet nose, mouth & paws
-            const baseMap = node.material.map;
-            const normMap = node.material.normalMap;
-            const roughMap = node.material.roughnessMap;
-
-            // Eliminate any washed-out white emissive glare from the GLTF file
-            node.material.emissive.setHex(0x000000);
-            node.material.emissiveMap = null;
-
-            // Pure neutral white tint so the authored texture colors (dark eyes, black nose, golden coat) remain 100% crisp
-            node.material.color.setHex(0xffffff);
-
-            // Refined normal scale for realistic fur grain without eye or nostril distortion
-            if (normMap) {
-              node.material.normalScale.set(0.35, 0.35);
-            }
-
-            // Honor the authored roughness map: 0.0 on eyes = crystal-clear glossy eyes, 0.8 on body = soft fur
-            node.material.roughness = 1.0;
-            node.material.metalness = 0.0;
-            node.material.needsUpdate = true;
-          }
-        } else if (node instanceof THREE.Mesh) {
-          node.castShadow = true;
-          node.receiveShadow = true;
-        }
       });
+
+      // Fit model nicely in viewport and rest paws squarely at ground y = 0
+      const box = new THREE.Box3().setFromObject(this.gltfModel);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const scale = 1.05 / (maxDim || 1);
+      this.gltfModel.scale.setScalar(scale);
+
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      this.gltfModel.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+
+      // Setup AnimationMixer with all baked canine skeletal animations
+      this.mixer = new THREE.AnimationMixer(this.gltfModel);
+      for (const clip of gltf.animations) {
+        const action = this.mixer.clipAction(clip);
+        this.animationActions.set(clip.name, action);
+      }
+
+      this.playAction("stand", 0);
+
+      this.camera.position.set(0, 0.95, 2.2);
+      this.camera.lookAt(0, 0.35, 0);
+      this.camera.fov = 40;
+      this.camera.updateProjectionMatrix();
 
       this.scene.add(this.gltfModel);
       this.root.visible = false;
@@ -635,444 +704,6 @@ export class ThreePetRenderer {
       this.isModelLoaded = false;
       return false;
     }
-  }
-
-  private updateCanineKinematics(frame: ThreePetFrame, dt: number): void {
-    if (this.gltfBones.size === 0) return;
-
-    for (const [name, bone] of this.gltfBones) {
-      const initRot = this.initialBoneRotations.get(name);
-      if (initRot) bone.rotation.copy(initRot);
-      const initPos = this.initialBonePositions.get(name);
-      if (initPos) bone.position.copy(initPos);
-    }
-
-    if (this.dogMesh?.morphTargetInfluences) {
-      // Natural rhythmic chest breathing
-      const breathSpeed = ["running", "chasing"].includes(frame.behavior) ? 5.5 : 2.2;
-      const breathAmp = frame.behavior === "sleeping" ? 0.45 : 0.28;
-      this.dogMesh.morphTargetInfluences[0] = Math.sin(frame.time * breathSpeed) * breathAmp + breathAmp;
-
-      // Realistic discrete eye blink (eyes open 96% of the time, soft blink every 4s, closed when sleeping)
-      let blink = 0;
-      if (frame.behavior === "sleeping") {
-        blink = 1.0;
-      } else {
-        const blinkCycle = frame.time % 4.2;
-        if (blinkCycle < 0.14) {
-          blink = Math.sin((blinkCycle / 0.14) * Math.PI);
-        }
-      }
-      this.dogMesh.morphTargetInfluences[1] = blink;
-    }
-
-    const root = this.gltfBones.get("DogROOTSHJnt");
-    const spine1 = this.gltfBones.get("Dog_Spine_01SHJnt");
-    const spine2 = this.gltfBones.get("Dog_Spine_02SHJnt");
-    const spineTop = this.gltfBones.get("Dog_Spine_TopSHJnt");
-    const neck1 = this.gltfBones.get("Dog_Neck_01SHJnt");
-    const neckTop = this.gltfBones.get("Dog_Neck_TopSHJnt");
-    const jaw = this.gltfBones.get("Dog_Head_JawSHJnt");
-    const leftEar = this.gltfBones.get("Dog_l_Ear_01_01SHJnt");
-    const rightEar = this.gltfBones.get("Dog_r_Ear_01_01SHJnt");
-    const leftFrontHip = this.gltfBones.get("Dog_l_FrontLeg_HipSHJnt");
-    const leftFrontKnee = this.gltfBones.get("Dog_l_FrontLeg_KneeSHJnt");
-    const leftFrontAnkle = this.gltfBones.get("Dog_l_FrontLeg_AnkleSHJnt");
-    const rightFrontHip = this.gltfBones.get("Dog_r_FrontLeg_HipSHJnt");
-    const rightFrontKnee = this.gltfBones.get("Dog_r_FrontLeg_KneeSHJnt");
-    const rightFrontAnkle = this.gltfBones.get("Dog_r_FrontLeg_AnkleSHJnt");
-    const leftHindHip = this.gltfBones.get("Dog_l_HindLeg_HipSHJnt");
-    const leftHindKnee = this.gltfBones.get("Dog_l_HindLeg_Knee1SHJnt");
-    const leftHindAnkle = this.gltfBones.get("Wolf_l_HindLeg_AnkleSHJnt");
-    const rightHindHip = this.gltfBones.get("Dog_r_HindLeg_HipSHJnt");
-    const rightHindKnee = this.gltfBones.get("Dog_r_HindLeg_Knee1SHJnt");
-    const rightHindAnkle = this.gltfBones.get("Dog_r_HindLeg_AnkleSHJnt");
-
-    const tailBones = [
-      this.gltfBones.get("Dog_Tail_01_02SHJnt"),
-      this.gltfBones.get("Dog_Tail_01_03SHJnt"),
-      this.gltfBones.get("Dog_Tail_01_04SHJnt"),
-      this.gltfBones.get("Dog_Tail_01_05SHJnt"),
-    ].filter(Boolean) as THREE.Bone[];
-
-    // Target transforms for all anatomical groups
-    let targetRootPosY = 0;
-    let targetRootPosZ = 0;
-    let targetSpine1Pitch = 0;
-    let targetSpine2Pitch = 0;
-    let targetSpineTopPitch = 0;
-    let targetSpineYaw = 0;
-    let targetNeck1Pitch = 0;
-    let targetNeckTopPitch = 0;
-    let targetNeckTopYaw = 0;
-    let targetJawOpen = 0;
-    let targetLeftFrontHip = 0;
-    let targetLeftFrontKnee = 0;
-    let targetLeftFrontAnkle = 0;
-    let targetRightFrontHip = 0;
-    let targetRightFrontKnee = 0;
-    let targetRightFrontAnkle = 0;
-    let targetLeftHindHip = 0;
-    let targetLeftHindKnee = 0;
-    let targetLeftHindAnkle = 0;
-    let targetRightHindHip = 0;
-    let targetRightHindKnee = 0;
-    let targetRightHindAnkle = 0;
-    let targetLeftEarX = 0;
-    let targetRightEarX = 0;
-    let targetLeftEarZ = 0;
-    let targetRightEarZ = 0;
-
-    const behavior = frame.behavior;
-
-    if (behavior === "walking") {
-      const cadence = 6.2;
-      const gait = Math.sin(frame.time * cadence);
-      const gaitCos = Math.cos(frame.time * cadence);
-
-      targetLeftFrontHip = gait * 0.38;
-      targetLeftFrontKnee = gait < 0 ? Math.sin(-gait * Math.PI * 0.5) * 0.48 : 0;
-      targetLeftFrontAnkle = gait * 0.15;
-
-      targetRightFrontHip = -gait * 0.38;
-      targetRightFrontKnee = gait > 0 ? Math.sin(gait * Math.PI * 0.5) * 0.48 : 0;
-      targetRightFrontAnkle = -gait * 0.15;
-
-      targetLeftHindHip = -gait * 0.32;
-      targetLeftHindKnee = gait > 0 ? -Math.sin(gait * Math.PI * 0.5) * 0.40 : 0;
-      targetLeftHindAnkle = -gait * 0.14;
-
-      targetRightHindHip = gait * 0.32;
-      targetRightHindKnee = gait < 0 ? -Math.sin(-gait * Math.PI * 0.5) * 0.40 : 0;
-      targetRightHindAnkle = gait * 0.14;
-
-      targetSpineYaw = gait * 0.05;
-      targetNeckTopPitch = -0.05 + Math.abs(gaitCos) * 0.05;
-      targetLeftEarX = Math.abs(gait) * 0.07;
-      targetRightEarX = Math.abs(gait) * 0.07;
-    } else if (["running", "chasing"].includes(behavior)) {
-      const speed = 11.5;
-      const cycle = frame.time * speed;
-      const s1 = Math.sin(cycle);
-      const s2 = Math.sin(cycle + 0.35);
-      const s3 = Math.sin(cycle + 2.2);
-      const s4 = Math.sin(cycle + 2.5);
-
-      targetLeftFrontHip = s1 * 0.62;
-      targetLeftFrontKnee = s1 < 0 ? Math.sin(-s1 * Math.PI * 0.5) * 0.60 : 0;
-
-      targetRightFrontHip = s2 * 0.62;
-      targetRightFrontKnee = s2 < 0 ? Math.sin(-s2 * Math.PI * 0.5) * 0.60 : 0;
-
-      targetLeftHindHip = s3 * 0.52;
-      targetLeftHindKnee = s3 < 0 ? -Math.sin(-s3 * Math.PI * 0.5) * 0.48 : 0;
-
-      targetRightHindHip = s4 * 0.52;
-      targetRightHindKnee = s4 < 0 ? -Math.sin(-s4 * Math.PI * 0.5) * 0.48 : 0;
-
-      targetSpine1Pitch = s1 * 0.14;
-      targetNeck1Pitch = 0.10;
-      targetNeckTopPitch = s1 * 0.08;
-      targetJawOpen = 0.12;
-      targetLeftEarX = 0.20;
-      targetRightEarX = 0.20;
-    } else if (behavior === "sit") {
-      targetRootPosY = -0.28;
-      targetRootPosZ = -0.10;
-
-      targetLeftHindHip = 0.55;
-      targetRightHindHip = 0.55;
-      targetLeftHindKnee = -0.85;
-      targetRightHindKnee = -0.85;
-      targetLeftHindAnkle = 0.35;
-      targetRightHindAnkle = 0.35;
-
-      targetLeftFrontHip = 0.12;
-      targetRightFrontHip = 0.12;
-      targetLeftFrontKnee = -0.05;
-      targetRightFrontKnee = -0.05;
-
-      targetSpine1Pitch = -0.28;
-      targetSpine2Pitch = -0.18;
-      targetNeck1Pitch = -0.20;
-      targetNeckTopPitch = -0.15;
-    } else if (behavior === "down") {
-      targetRootPosY = -0.42;
-
-      targetLeftFrontHip = -0.55;
-      targetRightFrontHip = -0.55;
-      targetLeftFrontKnee = 0.25;
-      targetRightFrontKnee = 0.25;
-
-      targetLeftHindHip = 0.50;
-      targetRightHindHip = 0.50;
-      targetLeftHindKnee = -0.70;
-      targetRightHindKnee = -0.70;
-
-      targetNeck1Pitch = 0.22;
-      targetNeckTopPitch = 0.15;
-    } else if (behavior === "sleeping") {
-      targetRootPosY = -0.44;
-
-      targetLeftFrontHip = -0.55;
-      targetRightFrontHip = -0.55;
-      targetLeftFrontKnee = 0.25;
-      targetRightFrontKnee = 0.25;
-
-      targetLeftHindHip = 0.50;
-      targetRightHindHip = 0.50;
-      targetLeftHindKnee = -0.70;
-      targetRightHindKnee = -0.70;
-
-      targetNeck1Pitch = 0.35;
-      targetNeckTopPitch = 0.25;
-    } else if (behavior === "handshake") {
-      targetRootPosY = -0.28;
-      targetRootPosZ = -0.10;
-      targetLeftHindHip = 0.55;
-      targetRightHindHip = 0.55;
-      targetLeftHindKnee = -0.85;
-      targetRightHindKnee = -0.85;
-
-      targetSpine1Pitch = -0.28;
-      targetLeftFrontHip = 0.12;
-
-      targetRightFrontHip = -0.85;
-      targetRightFrontKnee = 0.42;
-      targetRightFrontAnkle = -0.25;
-
-      targetNeckTopYaw = 0.12;
-      targetNeckTopPitch = -0.12;
-    } else if (behavior === "hi-five") {
-      targetRootPosY = -0.28;
-      targetRootPosZ = -0.10;
-      targetLeftHindHip = 0.55;
-      targetRightHindHip = 0.55;
-      targetLeftHindKnee = -0.85;
-      targetRightHindKnee = -0.85;
-
-      targetSpine1Pitch = -0.32;
-      targetLeftFrontHip = 0.12;
-
-      targetRightFrontHip = -1.35;
-      targetRightFrontKnee = 0.55;
-      targetRightFrontAnkle = -0.30;
-
-      targetNeckTopPitch = -0.25;
-      targetJawOpen = 0.18;
-    } else if (behavior === "salute") {
-      targetRootPosY = -0.28;
-      targetRootPosZ = -0.10;
-      targetLeftHindHip = 0.55;
-      targetRightHindHip = 0.55;
-      targetLeftHindKnee = -0.85;
-      targetRightHindKnee = -0.85;
-
-      targetSpine1Pitch = -0.32;
-      targetLeftFrontHip = 0.12;
-
-      targetRightFrontHip = -1.15;
-      targetRightFrontKnee = 1.05;
-      targetRightFrontAnkle = -0.45;
-
-      targetNeck1Pitch = -0.25;
-      targetNeckTopPitch = -0.15;
-    } else if (behavior === "namaste") {
-      targetRootPosY = -0.28;
-      targetRootPosZ = -0.10;
-      targetLeftHindHip = 0.55;
-      targetRightHindHip = 0.55;
-      targetLeftHindKnee = -0.85;
-      targetRightHindKnee = -0.85;
-
-      targetSpine1Pitch = -0.50;
-      targetSpine2Pitch = -0.30;
-
-      // Both front paws raised together in front of chest in Namaste prayer clasp
-      targetLeftFrontHip = -1.05;
-      targetLeftFrontKnee = 0.70;
-      targetLeftFrontAnkle = -0.20;
-
-      targetRightFrontHip = -1.05;
-      targetRightFrontKnee = 0.70;
-      targetRightFrontAnkle = -0.20;
-
-      targetNeck1Pitch = -0.20;
-      targetNeckTopPitch = -0.15;
-      targetNeckTopYaw = Math.sin(frame.time * 2) * 0.05;
-    } else if (behavior === "speak") {
-      const barkPulse = Math.max(0, Math.sin(frame.time * 14));
-      targetJawOpen = barkPulse * 0.42;
-      targetNeckTopPitch = -0.05 - barkPulse * 0.16;
-      targetSpine1Pitch = barkPulse * 0.06;
-      targetLeftEarX = -0.10;
-      targetRightEarX = -0.10;
-    } else if (behavior === "feed") {
-      targetNeck1Pitch = 0.48;
-      targetNeckTopPitch = 0.32;
-      targetJawOpen = Math.max(0, Math.sin(frame.time * 8)) * 0.24;
-    } else if (behavior === "treat") {
-      targetNeck1Pitch = -0.20;
-      targetNeckTopPitch = -0.32;
-      const chew = Math.max(0, Math.sin(frame.time * 9));
-      targetJawOpen = chew * 0.35;
-    } else if (behavior === "fetch") {
-      if (frame.progress < 0.45) {
-        // Run eagerly towards ball
-        const s = Math.sin(frame.time * 11);
-        targetLeftFrontHip = s * 0.55;
-        targetLeftFrontKnee = s < 0 ? Math.sin(-s * Math.PI * 0.5) * 0.52 : 0;
-        targetRightFrontHip = -s * 0.55;
-        targetRightFrontKnee = s > 0 ? Math.sin(s * Math.PI * 0.5) * 0.52 : 0;
-      } else if (frame.progress < 0.65) {
-        // Snap onto ball
-        targetNeckTopPitch = -0.22;
-        targetJawOpen = 0.38;
-      } else {
-        // Trot back holding ball
-        const s = Math.sin(frame.time * 7);
-        targetLeftFrontHip = s * 0.35;
-        targetRightFrontHip = -s * 0.35;
-        targetJawOpen = 0.22;
-        targetNeckTopPitch = -0.15;
-      }
-    } else if (behavior === "ask-food") {
-      targetRootPosY = -0.28;
-      targetRootPosZ = -0.10;
-      targetLeftHindHip = 0.55;
-      targetRightHindHip = 0.55;
-      targetLeftHindKnee = -0.85;
-      targetRightHindKnee = -0.85;
-
-      targetSpine1Pitch = -0.25;
-      targetLeftFrontHip = 0.12;
-
-      // Gentle pleading paw tap
-      targetRightFrontHip = -0.45 + Math.sin(frame.time * 4) * 0.18;
-      targetRightFrontKnee = 0.35;
-
-      targetNeckTopYaw = Math.sin(frame.time * 2.8) * 0.16;
-      targetNeckTopPitch = -0.18;
-    } else if (behavior === "surprise") {
-      const step = Math.sin(frame.progress * Math.PI * 12);
-      targetLeftFrontHip = step * 0.30;
-      targetRightFrontHip = -step * 0.30;
-      targetLeftHindHip = -step * 0.28;
-      targetRightHindHip = step * 0.28;
-      targetNeckTopYaw = 0.18;
-    } else if (behavior === "roll-over") {
-      const p = frame.progress;
-      if (p >= 0.20 && p <= 0.80) {
-        targetLeftFrontHip = -0.55;
-        targetRightFrontHip = -0.55;
-        targetLeftFrontKnee = 0.65;
-        targetRightFrontKnee = 0.65;
-        targetLeftHindHip = 0.50;
-        targetRightHindHip = 0.50;
-        targetLeftHindKnee = -0.75;
-        targetRightHindKnee = -0.75;
-      }
-    } else if (behavior === "jump") {
-      const p = frame.progress;
-      if (p < 0.25) {
-        targetRootPosY = -0.20;
-        targetLeftFrontHip = 0.25;
-        targetRightFrontHip = 0.25;
-        targetLeftHindHip = 0.35;
-        targetRightHindHip = 0.35;
-      } else if (p < 0.70) {
-        targetLeftFrontHip = 0.55;
-        targetRightFrontHip = 0.55;
-        targetLeftHindHip = -0.45;
-        targetRightHindHip = -0.45;
-        targetNeckTopPitch = -0.20;
-      } else {
-        targetLeftFrontHip = -0.20;
-        targetRightFrontHip = -0.20;
-        targetLeftHindHip = 0.20;
-        targetRightHindHip = 0.20;
-      }
-    } else {
-      // Idle: soft inquisitive canine posture
-      targetNeckTopYaw = Math.sin(frame.time * 1.1) * 0.08;
-      targetNeckTopPitch = -0.05 + Math.sin(frame.time * 0.8) * 0.04;
-      targetLeftEarZ = Math.sin(frame.time * 2.0) * 0.05;
-      targetRightEarZ = -Math.sin(frame.time * 2.0) * 0.05;
-    }
-
-    // Exponential temporal smoothing across all joints for continuous, butter-smooth motion
-    const k = 10.0;
-    this.currentRootPosY = smoothDamp(this.currentRootPosY, targetRootPosY, k, dt);
-    this.currentRootPosZ = smoothDamp(this.currentRootPosZ, targetRootPosZ, k, dt);
-    this.currentSpine1Pitch = smoothDamp(this.currentSpine1Pitch, targetSpine1Pitch, k, dt);
-    this.currentSpine2Pitch = smoothDamp(this.currentSpine2Pitch, targetSpine2Pitch, k, dt);
-    this.currentSpineTopPitch = smoothDamp(this.currentSpineTopPitch, targetSpineTopPitch, k, dt);
-    this.currentSpineYaw = smoothDamp(this.currentSpineYaw, targetSpineYaw, k, dt);
-    this.currentNeck1Pitch = smoothDamp(this.currentNeck1Pitch, targetNeck1Pitch, k, dt);
-    this.currentNeckTopPitch = smoothDamp(this.currentNeckTopPitch, targetNeckTopPitch, k, dt);
-    this.currentNeckTopYaw = smoothDamp(this.currentNeckTopYaw, targetNeckTopYaw, k, dt);
-    this.currentJawOpen = smoothDamp(this.currentJawOpen, targetJawOpen, k * 1.4, dt);
-    this.currentLeftFrontHip = smoothDamp(this.currentLeftFrontHip, targetLeftFrontHip, k * 1.2, dt);
-    this.currentLeftFrontKnee = smoothDamp(this.currentLeftFrontKnee, targetLeftFrontKnee, k * 1.2, dt);
-    this.currentLeftFrontAnkle = smoothDamp(this.currentLeftFrontAnkle, targetLeftFrontAnkle, k * 1.2, dt);
-    this.currentRightFrontHip = smoothDamp(this.currentRightFrontHip, targetRightFrontHip, k * 1.2, dt);
-    this.currentRightFrontKnee = smoothDamp(this.currentRightFrontKnee, targetRightFrontKnee, k * 1.2, dt);
-    this.currentRightFrontAnkle = smoothDamp(this.currentRightFrontAnkle, targetRightFrontAnkle, k * 1.2, dt);
-    this.currentLeftHindHip = smoothDamp(this.currentLeftHindHip, targetLeftHindHip, k * 1.2, dt);
-    this.currentLeftHindKnee = smoothDamp(this.currentLeftHindKnee, targetLeftHindKnee, k * 1.2, dt);
-    this.currentLeftHindAnkle = smoothDamp(this.currentLeftHindAnkle, targetLeftHindAnkle, k * 1.2, dt);
-    this.currentRightHindHip = smoothDamp(this.currentRightHindHip, targetRightHindHip, k * 1.2, dt);
-    this.currentRightHindKnee = smoothDamp(this.currentRightHindKnee, targetRightHindKnee, k * 1.2, dt);
-    this.currentRightHindAnkle = smoothDamp(this.currentRightHindAnkle, targetRightHindAnkle, k * 1.2, dt);
-    this.currentLeftEarX = smoothDamp(this.currentLeftEarX, targetLeftEarX, k, dt);
-    this.currentRightEarX = smoothDamp(this.currentRightEarX, targetRightEarX, k, dt);
-    this.currentLeftEarZ = smoothDamp(this.currentLeftEarZ, targetLeftEarZ, k, dt);
-    this.currentRightEarZ = smoothDamp(this.currentRightEarZ, targetRightEarZ, k, dt);
-
-    // Apply smoothed transforms to skeleton
-    if (root) {
-      root.position.y += this.currentRootPosY;
-      root.position.z += this.currentRootPosZ;
-    }
-    spine1?.rotateX(this.currentSpine1Pitch);
-    spine1?.rotateY(this.currentSpineYaw);
-    spine2?.rotateX(this.currentSpine2Pitch);
-    spineTop?.rotateX(this.currentSpineTopPitch);
-
-    neck1?.rotateX(this.currentNeck1Pitch);
-    neckTop?.rotateX(this.currentNeckTopPitch);
-    neckTop?.rotateY(this.currentNeckTopYaw);
-    jaw?.rotateX(this.currentJawOpen);
-
-    leftFrontHip?.rotateX(this.currentLeftFrontHip);
-    leftFrontKnee?.rotateX(this.currentLeftFrontKnee);
-    leftFrontAnkle?.rotateX(this.currentLeftFrontAnkle);
-
-    rightFrontHip?.rotateX(this.currentRightFrontHip);
-    rightFrontKnee?.rotateX(this.currentRightFrontKnee);
-    rightFrontAnkle?.rotateX(this.currentRightFrontAnkle);
-
-    leftHindHip?.rotateX(this.currentLeftHindHip);
-    leftHindKnee?.rotateX(this.currentLeftHindKnee);
-    leftHindAnkle?.rotateX(this.currentLeftHindAnkle);
-
-    rightHindHip?.rotateX(this.currentRightHindHip);
-    rightHindKnee?.rotateX(this.currentRightHindKnee);
-    rightHindAnkle?.rotateX(this.currentRightHindAnkle);
-
-    leftEar?.rotateX(this.currentLeftEarX);
-    leftEar?.rotateZ(this.currentLeftEarZ);
-    rightEar?.rotateX(this.currentRightEarX);
-    rightEar?.rotateZ(this.currentRightEarZ);
-
-    // Natural horizontal wagging with gentle vertical harmonic lift
-    const wagFreq = ["sit", "handshake", "hi-five", "feed", "treat", "fetch"].includes(behavior) ? 7.2 : 3.4;
-    const wagAmp = behavior === "sleeping" ? 0.04 : 0.25;
-    tailBones.forEach((b, i) => {
-      // RotateX wags horizontally in local tail bone coordinates
-      b.rotateX(Math.sin(frame.time * wagFreq - i * 0.32) * wagAmp);
-      b.rotateZ(Math.cos(frame.time * wagFreq * 0.5 - i * 0.2) * wagAmp * 0.35);
-    });
   }
 
   private buildBody(): void {
