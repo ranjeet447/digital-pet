@@ -1652,7 +1652,7 @@ export class DigitalPetElement extends HTMLElement {
 
     if (this.visible) {
       this.update(now, deltaSeconds);
-      this.facingScale = damp(this.facingScale, this.direction, 12, deltaSeconds);
+      this.facingScale = damp(this.facingScale, this.direction, 8.5, deltaSeconds);
       this.renderedBounce = damp(this.renderedBounce, this.bodyBounce(now / 1000), 16, deltaSeconds);
 
       const centerX = this.position.x + this.displayWidth / 2;
@@ -1760,7 +1760,9 @@ export class DigitalPetElement extends HTMLElement {
     const pointerIsMoving = now - this.pointerMovedAt < 700;
 
     if (distance < 240 && !["sleeping", "down"].includes(this.behavior) && this.behaviorEndsAt === null) {
-      this.direction = this.pointer.x < centerX ? -1 : 1;
+      if (Math.abs(this.pointer.x - centerX) > 28) {
+        this.direction = this.pointer.x < centerX ? -1 : 1;
+      }
       if (pointerIsMoving && distance > this.displayWidth * 0.55) {
         this.setBehavior("chasing");
       } else if (this.behavior === "chasing") {
@@ -1829,7 +1831,9 @@ export class DigitalPetElement extends HTMLElement {
       }
       return;
     }
-    this.direction = diffX < 0 ? -1 : 1;
+    if (Math.abs(diffX) > 8) {
+      this.direction = diffX < 0 ? -1 : 1;
+    }
     const approachScale = clamp(distance / 70, 0.25, 1);
     const desiredVx = (diffX / distance) * speed * approachScale;
     const desiredVy = (diffY / distance) * (speed * 0.75) * approachScale;
@@ -1847,7 +1851,9 @@ export class DigitalPetElement extends HTMLElement {
     const diffY = desiredY - this.position.y;
     const distance = Math.hypot(diffX, diffY);
     if (distance < 45) return;
-    this.direction = diffX < 0 ? -1 : 1;
+    if (Math.abs(diffX) > 8) {
+      this.direction = diffX < 0 ? -1 : 1;
+    }
     const desiredVx = (diffX / distance) * 92;
     const desiredVy = (diffY / distance) * 75;
     this.horizontalVelocity = damp(this.horizontalVelocity, desiredVx, 10, deltaSeconds);

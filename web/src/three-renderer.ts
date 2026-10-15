@@ -221,6 +221,7 @@ export class ThreePetRenderer {
   private readonly furNoise = createFurNoiseTexture();
   private readonly gltfBones = new Map<string, THREE.Bone>();
   private readonly initialBoneRotations = new Map<string, THREE.Euler>();
+  private readonly initialBoneQuaternions = new Map<string, THREE.Quaternion>();
   private readonly initialBonePositions = new Map<string, THREE.Vector3>();
   private mixer: THREE.AnimationMixer | null = null;
   private readonly animationActions = new Map<string, THREE.AnimationAction>();
@@ -662,7 +663,7 @@ export class ThreePetRenderer {
         targetClip = "wag";
       }
 
-      this.playAction(targetClip, 0.22);
+      this.playAction(targetClip, 0.32);
       if (this.currentActionName === "wag" && frame.isPetting) {
         const wagAction = this.animationActions.get("wag");
         if (wagAction) wagAction.setEffectiveTimeScale(2.4);
@@ -723,29 +724,6 @@ export class ThreePetRenderer {
       this.currentHeadYaw = smoothDamp(this.currentHeadYaw, targetHeadYaw, 8.5, dt);
       this.currentHeadPitch = smoothDamp(this.currentHeadPitch, targetHeadPitch, 8.5, dt);
 
-      // Feature 4: Floppy ear spring physics & petting relaxation
-      const gaitCadence = frame.behavior === "walking" ? 6.2 : ["running", "chasing"].includes(frame.behavior) ? 11.5 : 0;
-      const gaitEarBob = gaitCadence > 0 ? Math.sin(frame.time * gaitCadence) * 0.12 : 0;
-      const turnSway = Math.sin(frame.time * 2.5) * 0.04;
-
-      let targetEarL = gaitEarBob + turnSway;
-      let targetEarR = -gaitEarBob - turnSway;
-
-      if (frame.isPetting) {
-        targetEarL += 0.22; // Ears fold back in bliss
-        targetEarR += 0.22;
-      }
-
-      const springK = 26.0;
-      const damping = 4.6;
-      const accL = (targetEarL - this.earSpringAngles[0]) * springK - this.earSpringVelocities[0] * damping;
-      const accR = (targetEarR - this.earSpringAngles[1]) * springK - this.earSpringVelocities[1] * damping;
-      this.earSpringVelocities[0] += accL * dt;
-      this.earSpringVelocities[1] += accR * dt;
-      this.earSpringAngles[0] += this.earSpringVelocities[0] * dt;
-      this.earSpringAngles[1] += this.earSpringVelocities[1] * dt;
-
-      // Additive bone adjustments for front paws, head, and floppy ears
       // Helper function to apply local additive euler rotation to a bone's quaternion
       const rotateBone = (bone: THREE.Bone | undefined, rx: number, ry: number, rz: number) => {
         if (!bone) return;
@@ -770,18 +748,49 @@ export class ThreePetRenderer {
         rotateBone(head, this.currentHeadPitch, this.currentHeadYaw, 0);
       }
 
+      // Feature 4: Anatomically stabilized ear kinematics (prevents helicopter spinning)
       if (earL && earR) {
-        if (profile.earTilt) {
-          rotateBone(earL, profile.earTilt.x, profile.earTilt.y, profile.earTilt.z);
-          rotateBone(earR, profile.earTilt.x, -profile.earTilt.y, -profile.earTilt.z);
+        if (profile.isPrickEared) {
+          // Prick ears (Husky, German Shepherd, Shiba Inu) have erect, firm cartilage.
+          // Restore to resting reference orientation so baked floppy-ear keyframes never cause helicopter spinning.
+          const baseQuatL = this.initialBoneQuaternions.get("ear_L");
+          const baseQuatR = this.initialBoneQuaternions.get("ear_R");
+          if (baseQuatL) earL.quaternion.copy(baseQuatL);
+          if (baseQuatR) earR.quaternion.copy(baseQuatR);
+
+          if (profile.earTilt) {
+            rotateBone(earL, profile.earTilt.x, profile.earTilt.y, profile.earTilt.z);
+            rotateBone(earR, profile.earTilt.x, -profile.earTilt.y, -profile.earTilt.z);
+          }
+          if (profile.earScale) {
+            earL.scale.set(profile.earScale.x, profile.earScale.y, profile.earScale.z);
+            earR.scale.set(profile.earScale.x, profile.earScale.y, profile.earScale.z);
+          }
+
+          // Subtle organic micro-motion: aerodynamic pin-back during sprint, bliss fold during petting, alert idle twitches
+          const isSprint = ["running", "chasing"].includes(frame.behavior);
+          const sprintPin = isSprint ? -0.15 : 0;
+          const pettingRelax = frame.isPetting ? 0.22 : 0;
+          const alertTwitchL = Math.sin(frame.time * 2.8) * 0.025 + sprintPin + pettingRelax;
+          const alertTwitchR = Math.sin(frame.time * 3.1 + 1.2) * 0.025 + sprintPin + pettingRelax;
+          rotateBone(earL, alertTwitchL, 0, frame.isPetting ? 0.12 : 0);
+          rotateBone(earR, alertTwitchR, 0, frame.isPetting ? -0.12 : 0);
+        } else {
+          // Floppy drop ears (Golden Retriever, Labradors):
+          // Model's baked skeletal clips already provide natural floppy ear locomotion sway.
+          if (profile.earTilt) {
+            rotateBone(earL, profile.earTilt.x, profile.earTilt.y, profile.earTilt.z);
+            rotateBone(earR, profile.earTilt.x, -profile.earTilt.y, -profile.earTilt.z);
+          }
+          if (profile.earScale) {
+            earL.scale.set(profile.earScale.x, profile.earScale.y, profile.earScale.z);
+            earR.scale.set(profile.earScale.x, profile.earScale.y, profile.earScale.z);
+          }
+          if (frame.isPetting) {
+            rotateBone(earL, 0.22, 0, 0.16);
+            rotateBone(earR, 0.22, 0, -0.16);
+          }
         }
-        if (profile.earScale) {
-          earL.scale.set(profile.earScale.x, profile.earScale.y, profile.earScale.z);
-          earR.scale.set(profile.earScale.x, profile.earScale.y, profile.earScale.z);
-        }
-        const physScale = profile.isPrickEared ? 0.35 : 1.0;
-        rotateBone(earL, this.earSpringAngles[0] * physScale, 0, frame.isPetting ? 0.18 : 0);
-        rotateBone(earR, this.earSpringAngles[1] * physScale, 0, frame.isPetting ? -0.18 : 0);
       }
 
       if (profile.tailCurvature) {
@@ -791,20 +800,37 @@ export class ThreePetRenderer {
         if (tail3 && c3 !== 0) rotateBone(tail3, c3, 0, this.currentBreed === "shiba-inu" ? 0.25 : 0);
       }
 
+      // Smooth organic lift and lower envelope for paw tricks (eases in, holds, eases out)
+      const trickEnvelope = (p: number): number => {
+        if (p < 0.20) {
+          const t = p / 0.20;
+          return 0.5 - 0.5 * Math.cos(t * Math.PI);
+        }
+        if (p > 0.80) {
+          const t = (1 - p) / 0.20;
+          return 0.5 - 0.5 * Math.cos(t * Math.PI);
+        }
+        return 1.0;
+      };
+
+      const trickWeight = ["handshake", "hi-five", "salute", "namaste"].includes(frame.behavior)
+        ? trickEnvelope(frame.progress)
+        : 1.0;
+
       if (frame.behavior === "handshake") {
-        rotateBone(frontPawR, -0.92, 0.05, -0.18);
-        rotateBone(frontLowerR, 0.35, 0, 0);
+        rotateBone(frontPawR, -0.92 * trickWeight, 0.05 * trickWeight, -0.18 * trickWeight);
+        rotateBone(frontLowerR, 0.35 * trickWeight, 0, 0);
       } else if (frame.behavior === "hi-five") {
-        rotateBone(frontPawR, -1.48, 0.12, -0.22);
-        rotateBone(frontLowerR, 0.25, 0, 0);
+        rotateBone(frontPawR, -1.48 * trickWeight, 0.12 * trickWeight, -0.22 * trickWeight);
+        rotateBone(frontLowerR, 0.25 * trickWeight, 0, 0);
       } else if (frame.behavior === "salute") {
-        rotateBone(frontPawR, -1.35, 0.28, -0.55);
-        rotateBone(frontLowerR, 0.55, 0, 0);
+        rotateBone(frontPawR, -1.35 * trickWeight, 0.28 * trickWeight, -0.55 * trickWeight);
+        rotateBone(frontLowerR, 0.55 * trickWeight, 0, 0);
       } else if (frame.behavior === "namaste") {
-        rotateBone(frontPawR, -1.05, 0.12, -0.28);
-        rotateBone(frontPawL, -1.05, -0.12, 0.28);
-        rotateBone(frontLowerR, 0.40, 0, 0);
-        rotateBone(frontLowerL, 0.40, 0, 0);
+        rotateBone(frontPawR, -1.05 * trickWeight, 0.12 * trickWeight, -0.28 * trickWeight);
+        rotateBone(frontPawL, -1.05 * trickWeight, -0.12 * trickWeight, 0.28 * trickWeight);
+        rotateBone(frontLowerR, 0.40 * trickWeight, 0, 0);
+        rotateBone(frontLowerL, 0.40 * trickWeight, 0, 0);
       } else if (frame.behavior === "ask-food" && head) {
         rotateBone(head, 0, 0, Math.sin(frame.time * 4) * 0.18 + 0.22);
       }
@@ -999,17 +1025,23 @@ export class ThreePetRenderer {
     this.renderer.dispose();
   }
 
-  private playAction(name: string, fadeDuration = 0.22): void {
+  private playAction(name: string, fadeDuration = 0.32): void {
     if (this.currentActionName === name) return;
     const nextAction = this.animationActions.get(name);
     if (!nextAction) return;
 
     const prevAction = this.currentActionName ? this.animationActions.get(this.currentActionName) : null;
     if (prevAction && prevAction !== nextAction) {
-      prevAction.fadeOut(fadeDuration);
+      nextAction.reset();
+      nextAction.enabled = true;
+      nextAction.setEffectiveTimeScale(1);
+      nextAction.setEffectiveWeight(1);
+      nextAction.crossFadeFrom(prevAction, fadeDuration, true);
+      nextAction.play();
+    } else {
+      nextAction.reset().fadeIn(fadeDuration).play();
     }
 
-    nextAction.reset().fadeIn(fadeDuration).play();
     this.currentActionName = name;
   }
 
@@ -1029,6 +1061,7 @@ export class ThreePetRenderer {
       this.currentActionName = "";
       this.gltfBones.clear();
       this.initialBoneRotations.clear();
+      this.initialBoneQuaternions.clear();
       this.initialBonePositions.clear();
       this.dogMesh = null;
       this.gltfMaterialsByName.clear();
@@ -1131,6 +1164,7 @@ export class ThreePetRenderer {
         if (node instanceof THREE.Bone) {
           this.gltfBones.set(node.name, node);
           this.initialBoneRotations.set(node.name, node.rotation.clone());
+          this.initialBoneQuaternions.set(node.name, node.quaternion.clone());
           this.initialBonePositions.set(node.name, node.position.clone());
         }
       });
