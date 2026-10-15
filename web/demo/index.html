@@ -1347,6 +1347,20 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
         });
       });
 
+      const activityButtons = document.querySelectorAll("[data-activity-btn]");
+      activityButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          pet.setActivity(button.dataset.activityBtn);
+        });
+      });
+
+      const barkingButtons = document.querySelectorAll("[data-barking-btn]");
+      barkingButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          pet.setBarking(button.dataset.barkingBtn);
+        });
+      });
+
       pet.addEventListener("digital-pet-renderer-change", (event) => {
         viewButtons.forEach((button) => {
           const selected = button.dataset.view === event.detail.renderer;
@@ -1363,6 +1377,24 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
           button.setAttribute("aria-pressed", String(selected));
         });
         statusText.textContent = `Dog breed: ${event.detail.profile.name}`;
+      });
+
+      pet.addEventListener("digital-pet-activity-change", (event) => {
+        activityButtons.forEach((button) => {
+          const selected = button.dataset.activityBtn === event.detail.activity;
+          button.classList.toggle("active", selected);
+          button.setAttribute("aria-pressed", String(selected));
+        });
+        statusText.textContent = `Activity pace: ${event.detail.activity.toUpperCase()}`;
+      });
+
+      pet.addEventListener("digital-pet-barking-change", (event) => {
+        barkingButtons.forEach((button) => {
+          const selected = button.dataset.barkingBtn === event.detail.barking;
+          button.classList.toggle("active", selected);
+          button.setAttribute("aria-pressed", String(selected));
+        });
+        statusText.textContent = `Vocalization: ${event.detail.barking.toUpperCase()}`;
       });
 
       codeTabs.forEach((tab) => {
@@ -1539,6 +1571,37 @@ shiro.command(<span class="code-accent">"sleep"</span>);`,
                   </button>
                   <button class="view-option" type="button" data-breed-btn="shiba-inu" aria-pressed="false">
                     Shiba Inu
+                  </button>
+                </div>
+              </div>
+              <div class="view-picker" style="margin-top: 14px">
+                <strong>Activity & Pacing</strong>
+                <div class="view-options" role="group" aria-label="Activity level" style="grid-template-columns: repeat(4, 1fr); width: 100%">
+                  <button class="view-option active" type="button" data-activity-btn="calm" aria-pressed="true">
+                    Calm (Gentle)
+                  </button>
+                  <button class="view-option" type="button" data-activity-btn="normal" aria-pressed="false">
+                    Normal
+                  </button>
+                  <button class="view-option" type="button" data-activity-btn="playful" aria-pressed="false">
+                    Playful
+                  </button>
+                  <button class="view-option" type="button" data-activity-btn="manual" aria-pressed="false">
+                    Manual (Still)
+                  </button>
+                </div>
+              </div>
+              <div class="view-picker" style="margin-top: 14px">
+                <strong>Barking & Sounds</strong>
+                <div class="view-options" role="group" aria-label="Barking rate" style="grid-template-columns: repeat(3, 1fr); width: 100%">
+                  <button class="view-option active" type="button" data-barking-btn="rare" aria-pressed="true">
+                    Rare (Commands)
+                  </button>
+                  <button class="view-option" type="button" data-barking-btn="normal" aria-pressed="false">
+                    Normal
+                  </button>
+                  <button class="view-option" type="button" data-barking-btn="off" aria-pressed="false">
+                    Silent
                   </button>
                 </div>
               </div>

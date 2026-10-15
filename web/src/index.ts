@@ -2,6 +2,9 @@ import { ThreePetRenderer, DogBreed, BreedProfile, DOG_BREEDS } from "./three-re
 
 export { DogBreed, BreedProfile, DOG_BREEDS } from "./three-renderer.js";
 
+export type PetActivityLevel = "calm" | "normal" | "playful" | "manual";
+export type PetBarkingMode = "rare" | "normal" | "off";
+
 export const DIGITAL_PET_COMMANDS = [
   "sit",
   "walk",
@@ -380,13 +383,17 @@ template.innerHTML = `
       accent-color: #a95e24;
     }
 
-    .breeds {
+    .breeds,
+    .activities,
+    .barkings {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 6px;
     }
 
-    .breed-btn {
+    .breed-btn,
+    .activity-btn,
+    .barking-btn {
       min-height: 32px;
       border: 1px solid #ead8c4;
       border-radius: 9px;
@@ -401,14 +408,20 @@ template.innerHTML = `
       transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
     }
 
-    .breed-btn:hover {
+    .breed-btn:hover,
+    .activity-btn:hover,
+    .barking-btn:hover {
       background: #fbf5ed;
       border-color: #cb7a38;
       color: #76451e;
     }
 
     .breed-btn.is-active,
-    .breed-btn[aria-pressed="true"] {
+    .breed-btn[aria-pressed="true"],
+    .activity-btn.is-active,
+    .activity-btn[aria-pressed="true"],
+    .barking-btn.is-active,
+    .barking-btn[aria-pressed="true"] {
       background: #76451e;
       border-color: #76451e;
       color: #fff;
@@ -536,6 +549,19 @@ template.innerHTML = `
       <button class="breed-btn" type="button" data-breed="german-shepherd" aria-pressed="false">German Shepherd</button>
       <button class="breed-btn" type="button" data-breed="shiba-inu" aria-pressed="false">Shiba Inu</button>
     </div>
+    <div class="section-title">Activity level</div>
+    <div class="activities">
+      <button class="activity-btn" type="button" data-activity="calm" aria-pressed="true">Calm</button>
+      <button class="activity-btn" type="button" data-activity="normal" aria-pressed="false">Normal</button>
+      <button class="activity-btn" type="button" data-activity="playful" aria-pressed="false">Playful</button>
+      <button class="activity-btn" type="button" data-activity="manual" aria-pressed="false">Manual</button>
+    </div>
+    <div class="section-title">Barking</div>
+    <div class="barkings">
+      <button class="barking-btn" type="button" data-barking="rare" aria-pressed="true">Rare (Command)</button>
+      <button class="barking-btn" type="button" data-barking="normal" aria-pressed="false">Normal</button>
+      <button class="barking-btn" type="button" data-barking="off" aria-pressed="false">Silent</button>
+    </div>
     <div class="section-title">Sound</div>
     <div class="sound-row">
       <button class="sound-toggle" type="button" aria-pressed="false">Enable sounds</button>
@@ -567,7 +593,20 @@ export class DigitalPetElement extends HTMLElement {
   static readonly tagName = "digital-pet";
 
   static get observedAttributes(): string[] {
-    return ["name", "size", "controls", "cursor-interaction", "z-index", "sound", "volume", "renderer", "model-src", "breed"];
+    return [
+      "name",
+      "size",
+      "controls",
+      "cursor-interaction",
+      "z-index",
+      "sound",
+      "volume",
+      "renderer",
+      "model-src",
+      "breed",
+      "activity",
+      "barking",
+    ];
   }
 
   private canvas: HTMLCanvasElement;
@@ -582,9 +621,12 @@ export class DigitalPetElement extends HTMLElement {
   private readonly barkAudio = new Audio(new URL("../assets/bark-cute.mp3", import.meta.url).href);
   private threeRenderer: ThreePetRenderer | null = null;
   private currentBreed: DogBreed = "golden-retriever";
+  private activityValue: PetActivityLevel = "calm";
+  private barkingValue: PetBarkingMode = "rare";
+  private lastBarkAt = 0;
   private animationFrame = 0;
   private lastFrame = performance.now();
-  private nextDecisionAt = performance.now() + 4500;
+  private nextDecisionAt = performance.now() + 25000;
   private behaviorStartedAt = performance.now();
   private behaviorEndsAt: number | null = null;
   private behavior: Behavior = "idle";
@@ -663,6 +705,18 @@ export class DigitalPetElement extends HTMLElement {
       this.currentBreed = initialBreed;
     }
     this.updateBreedButtons();
+
+    const initialActivity = this.getAttribute("activity") as PetActivityLevel;
+    if (initialActivity && ["calm", "normal", "playful", "manual"].includes(initialActivity)) {
+      this.activityValue = initialActivity;
+    }
+    this.updateActivityButtons();
+
+    const initialBarking = this.getAttribute("barking") as PetBarkingMode;
+    if (initialBarking && ["rare", "normal", "off"].includes(initialBarking)) {
+      this.barkingValue = initialBarking;
+    }
+    this.updateBarkingButtons();
     this.placeInStartCorner();
     this.applyCanvasSize();
 
@@ -732,6 +786,12 @@ export class DigitalPetElement extends HTMLElement {
     }
     if (name === "breed" && newValue && newValue !== _oldValue) {
       this.setBreed(newValue as DogBreed);
+    }
+    if (name === "activity" && newValue && newValue !== _oldValue) {
+      this.setActivity(newValue as PetActivityLevel);
+    }
+    if (name === "barking" && newValue && newValue !== _oldValue) {
+      this.setBarking(newValue as PetBarkingMode);
     }
   }
 
@@ -921,6 +981,83 @@ export class DigitalPetElement extends HTMLElement {
     }
   }
 
+  get activity(): PetActivityLevel {
+    return this.activityValue;
+  }
+
+  set activity(value: PetActivityLevel) {
+    this.setActivity(value);
+  }
+
+  setActivity(activity: PetActivityLevel): void {
+    if (!["calm", "normal", "playful", "manual"].includes(activity)) return;
+    this.activityValue = activity;
+    if (this.getAttribute("activity") !== activity) {
+      this.setAttribute("activity", activity);
+    }
+    this.updateActivityButtons();
+    if (activity === "manual") {
+      this.nextDecisionAt = Number.POSITIVE_INFINITY;
+    } else if (activity === "calm") {
+      this.nextDecisionAt = performance.now() + randomBetween(20000, 45000);
+    } else if (activity === "normal") {
+      this.nextDecisionAt = performance.now() + randomBetween(10000, 22000);
+    } else if (activity === "playful") {
+      this.nextDecisionAt = performance.now() + randomBetween(4000, 8000);
+    }
+    this.dispatchEvent(
+      new CustomEvent("digital-pet-activity-change", {
+        detail: { activity },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private updateActivityButtons(): void {
+    const btns = this.shadowRoot?.querySelectorAll<HTMLButtonElement>("[data-activity]");
+    if (!btns) return;
+    for (const btn of btns) {
+      const isCurrent = btn.dataset.activity === this.activityValue;
+      btn.classList.toggle("is-active", isCurrent);
+      btn.setAttribute("aria-pressed", String(isCurrent));
+    }
+  }
+
+  get barking(): PetBarkingMode {
+    return this.barkingValue;
+  }
+
+  set barking(value: PetBarkingMode) {
+    this.setBarking(value);
+  }
+
+  setBarking(barking: PetBarkingMode): void {
+    if (!["rare", "normal", "off"].includes(barking)) return;
+    this.barkingValue = barking;
+    if (this.getAttribute("barking") !== barking) {
+      this.setAttribute("barking", barking);
+    }
+    this.updateBarkingButtons();
+    this.dispatchEvent(
+      new CustomEvent("digital-pet-barking-change", {
+        detail: { barking },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private updateBarkingButtons(): void {
+    const btns = this.shadowRoot?.querySelectorAll<HTMLButtonElement>("[data-barking]");
+    if (!btns) return;
+    for (const btn of btns) {
+      const isCurrent = btn.dataset.barking === this.barkingValue;
+      btn.classList.toggle("is-active", isCurrent);
+      btn.setAttribute("aria-pressed", String(isCurrent));
+    }
+  }
+
   bringToPointer(): void {
     const x = this.pointer.x >= 0 ? this.pointer.x : window.innerWidth / 2;
     const y = this.pointer.y >= 0 ? this.pointer.y : window.innerHeight / 2;
@@ -1024,8 +1161,16 @@ export class DigitalPetElement extends HTMLElement {
     );
   }
 
-  private playBark(kind: "greeting" | "happy" | "excited" | "speak" | "hungry"): void {
+  private playBark(kind: "greeting" | "happy" | "excited" | "speak" | "hungry", force = false): void {
     if (!this.soundEnabled || this.volume <= 0) return;
+    if (this.barkingValue === "off" && !force) return;
+    const now = performance.now();
+    // In "rare" barking mode, suppress spontaneous or rapid autonomous barking:
+    // Only allow bark if explicitly commanded ("speak" or force) or if at least 45s have passed
+    if (this.barkingValue === "rare" && kind !== "speak" && !force) {
+      if (now - this.lastBarkAt < 45000) return;
+    }
+    this.lastBarkAt = now;
     const audio = this.barkAudio.cloneNode(true) as HTMLAudioElement;
     audio.volume = this.volume * (kind === "hungry" ? 0.58 : kind === "greeting" ? 0.72 : 0.88);
     audio.playbackRate =
@@ -1042,6 +1187,7 @@ export class DigitalPetElement extends HTMLElement {
       // Browsers may still block audio until the next direct user gesture.
     });
   }
+
 
   private requireElement<T extends Element>(selector: string): T {
     const element = this.shadowRoot?.querySelector<T>(selector);
@@ -1143,6 +1289,20 @@ export class DigitalPetElement extends HTMLElement {
       button.addEventListener("click", () => {
         const breed = button.dataset.breed as DogBreed;
         if (breed) this.setBreed(breed);
+      });
+    });
+
+    this.shadowRoot?.querySelectorAll<HTMLButtonElement>("[data-activity]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const activity = button.dataset.activity as PetActivityLevel;
+        if (activity) this.setActivity(activity);
+      });
+    });
+
+    this.shadowRoot?.querySelectorAll<HTMLButtonElement>("[data-barking]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const barking = button.dataset.barking as PetBarkingMode;
+        if (barking) this.setBarking(barking);
       });
     });
   }
@@ -1547,13 +1707,29 @@ export class DigitalPetElement extends HTMLElement {
   private update(now: number, deltaSeconds: number): void {
     const hungerElapsedMinutes = (now - this.lastHungerUpdate) / 60000;
     this.lastHungerUpdate = now;
-    this.hunger = clamp(this.hunger + hungerElapsedMinutes * 2.4, 0, 100);
+    const hungerRate =
+      this.activityValue === "calm"
+        ? 0.35
+        : this.activityValue === "manual"
+          ? 0.20
+          : this.activityValue === "normal"
+            ? 0.85
+            : 1.8;
+    this.hunger = clamp(this.hunger + hungerElapsedMinutes * hungerRate, 0, 100);
 
     if (this.behaviorEndsAt !== null && now >= this.behaviorEndsAt) {
       this.behaviorEndsAt = null;
       if (this.fetchPhase === "idle") {
         this.setBehavior("idle");
-        this.nextDecisionAt = now + randomBetween(3000, 7000);
+        if (this.activityValue === "manual") {
+          this.nextDecisionAt = Number.POSITIVE_INFINITY;
+        } else if (this.activityValue === "calm") {
+          this.nextDecisionAt = now + randomBetween(20000, 45000);
+        } else if (this.activityValue === "normal") {
+          this.nextDecisionAt = now + randomBetween(10000, 22000);
+        } else {
+          this.nextDecisionAt = now + randomBetween(4000, 8000);
+        }
       }
     }
 
@@ -1565,6 +1741,7 @@ export class DigitalPetElement extends HTMLElement {
     }
 
     if (
+      this.activityValue !== "manual" &&
       now >= this.nextDecisionAt &&
       this.behaviorEndsAt === null &&
       this.fetchPhase === "idle" &&
@@ -1630,7 +1807,7 @@ export class DigitalPetElement extends HTMLElement {
       this.behaviorEndsAt = performance.now() + 3500;
       this.say("Good boy! 🎾");
       this.playBark("happy");
-      this.nextDecisionAt = performance.now() + 5000;
+      this.nextDecisionAt = performance.now() + (this.activityValue === "calm" ? 25000 : 7000);
       return;
     }
 
@@ -1641,7 +1818,15 @@ export class DigitalPetElement extends HTMLElement {
       this.horizontalVelocity = 0;
       this.verticalVelocity = 0;
       this.setBehavior("idle");
-      this.nextDecisionAt = performance.now() + randomBetween(3000, 7000);
+      if (this.activityValue === "manual") {
+        this.nextDecisionAt = Number.POSITIVE_INFINITY;
+      } else if (this.activityValue === "calm") {
+        this.nextDecisionAt = performance.now() + randomBetween(20000, 45000);
+      } else if (this.activityValue === "normal") {
+        this.nextDecisionAt = performance.now() + randomBetween(10000, 22000);
+      } else {
+        this.nextDecisionAt = performance.now() + randomBetween(4000, 8000);
+      }
       return;
     }
     this.direction = diffX < 0 ? -1 : 1;
@@ -1673,7 +1858,12 @@ export class DigitalPetElement extends HTMLElement {
   }
 
   private chooseAutonomousBehavior(): void {
-    if (this.hunger >= 82 || (this.hunger >= 62 && Math.random() > 0.58)) {
+    if (this.activityValue === "manual") {
+      this.nextDecisionAt = Number.POSITIVE_INFINITY;
+      return;
+    }
+
+    if (this.hunger >= 88 || (this.hunger >= 75 && Math.random() > 0.7)) {
       this.setTimedBehavior("ask-food", TRICK_DURATION["ask-food"] ?? 3200);
       this.say("Food, please?");
       this.playBark("hungry");
@@ -1687,26 +1877,62 @@ export class DigitalPetElement extends HTMLElement {
       return;
     }
 
+    if (this.activityValue === "calm") {
+      const roll = Math.random() * 100;
+      if (roll < 45) {
+        this.setTimedBehavior("idle", randomBetween(15000, 30000));
+        this.say(Math.random() > 0.6 ? "Resting peacefully..." : "Observing room...");
+      } else if (roll < 70) {
+        this.setTimedBehavior("sit", randomBetween(12000, 24000));
+        this.say("Sitting calmly...");
+      } else if (roll < 88) {
+        this.startMoving(false); // Gentle stroll
+      } else {
+        this.moveToNearestCorner();
+        this.setTimedBehavior("sleeping", randomBetween(25000, 50000));
+        this.say("Zzz...");
+      }
+      return;
+    }
+
+    if (this.activityValue === "normal") {
+      const roll = Math.random() * 100;
+      if (roll < 35) {
+        this.setTimedBehavior("idle", randomBetween(8000, 16000));
+        this.say(Math.random() > 0.5 ? "Watching..." : "Chilling...");
+      } else if (roll < 60) {
+        this.startMoving(false);
+      } else if (roll < 75) {
+        this.setTimedBehavior("sit", randomBetween(6000, 12000));
+      } else if (roll < 88) {
+        this.randomTrick();
+      } else {
+        this.moveToNearestCorner();
+        this.setTimedBehavior("sleeping", randomBetween(15000, 30000));
+        this.say("Zzz...");
+      }
+      return;
+    }
+
+    // Playful mode
     const roll = Math.random() * 100;
-    if (roll < 26) {
+    if (roll < 24) {
       this.startMoving(false);
-    } else if (roll < 40) {
+    } else if (roll < 44) {
       this.startMoving(true);
-    } else if (roll < 54) {
+    } else if (roll < 60) {
       this.startAutonomousPlay("fetch");
-    } else if (roll < 64) {
-      this.startAutonomousPlay("speak");
-    } else if (roll < 74) {
-      this.startAutonomousPlay("surprise");
-    } else if (roll < 84) {
-      this.setTimedBehavior("idle", randomBetween(4000, 9000));
-      this.say(Math.random() > 0.5 ? "Watching..." : "Ball?");
-    } else if (roll < 94) {
+    } else if (roll < 72) {
       this.randomTrick();
+    } else if (roll < 84) {
+      this.startAutonomousPlay("surprise");
+    } else if (roll < 92) {
+      this.setTimedBehavior("idle", randomBetween(4000, 7000));
+      this.say("Play with me! 🎾");
     } else {
       this.moveToNearestCorner();
-      this.setTimedBehavior("sleeping", randomBetween(12000, 24000));
-      this.say("Zzz...");
+      this.setTimedBehavior("sleeping", randomBetween(10000, 20000));
+      this.say("Quick nap... Zzz");
     }
   }
 

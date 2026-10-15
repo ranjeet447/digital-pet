@@ -21,6 +21,10 @@ export interface BreedProfile {
   collarColor: number;
   tagColor: number;
   scaleFactor: number;
+  earTilt?: { x: number; y: number; z: number };
+  earScale?: { x: number; y: number; z: number };
+  tailCurvature?: [number, number, number];
+  isPrickEared?: boolean;
 }
 
 export const DOG_BREEDS: Record<DogBreed, BreedProfile> = {
@@ -36,6 +40,9 @@ export const DOG_BREEDS: Record<DogBreed, BreedProfile> = {
     collarColor: 0xc92a2a,
     tagColor: 0xf59e0b,
     scaleFactor: 1.0,
+    earScale: { x: 1.05, y: 1.02, z: 1.05 },
+    tailCurvature: [0, 0, 0],
+    isPrickEared: false,
   },
   "black-labrador": {
     name: "Black Labrador",
@@ -49,6 +56,10 @@ export const DOG_BREEDS: Record<DogBreed, BreedProfile> = {
     collarColor: 0x0284c7,
     tagColor: 0xf1f5f9,
     scaleFactor: 1.02,
+    earTilt: { x: -0.10, y: 0.08, z: -0.06 },
+    earScale: { x: 0.88, y: 0.88, z: 0.88 },
+    tailCurvature: [0.10, 0, 0],
+    isPrickEared: false,
   },
   "chocolate-labrador": {
     name: "Chocolate Labrador",
@@ -62,6 +73,10 @@ export const DOG_BREEDS: Record<DogBreed, BreedProfile> = {
     collarColor: 0x16a34a,
     tagColor: 0xf59e0b,
     scaleFactor: 1.01,
+    earTilt: { x: -0.10, y: 0.08, z: -0.06 },
+    earScale: { x: 0.88, y: 0.88, z: 0.88 },
+    tailCurvature: [0.10, 0, 0],
+    isPrickEared: false,
   },
   husky: {
     name: "Siberian Husky",
@@ -75,6 +90,10 @@ export const DOG_BREEDS: Record<DogBreed, BreedProfile> = {
     collarColor: 0xe11d48,
     tagColor: 0x38bdf8,
     scaleFactor: 0.98,
+    earTilt: { x: 2.50, y: 0.18, z: -0.22 },
+    earScale: { x: 0.85, y: 1.30, z: 0.85 },
+    tailCurvature: [0.78, 0.65, 0.35],
+    isPrickEared: true,
   },
   "german-shepherd": {
     name: "German Shepherd",
@@ -88,6 +107,10 @@ export const DOG_BREEDS: Record<DogBreed, BreedProfile> = {
     collarColor: 0x991b1b,
     tagColor: 0xf59e0b,
     scaleFactor: 1.04,
+    earTilt: { x: 2.45, y: 0.18, z: -0.28 },
+    earScale: { x: 0.95, y: 1.55, z: 0.85 },
+    tailCurvature: [-0.32, -0.15, 0],
+    isPrickEared: true,
   },
   "shiba-inu": {
     name: "Shiba Inu",
@@ -101,6 +124,10 @@ export const DOG_BREEDS: Record<DogBreed, BreedProfile> = {
     collarColor: 0x059669,
     tagColor: 0xf59e0b,
     scaleFactor: 0.92,
+    earTilt: { x: 2.45, y: 0.18, z: -0.28 },
+    earScale: { x: 0.72, y: 1.10, z: 0.72 },
+    tailCurvature: [1.25, 1.35, 0.95],
+    isPrickEared: true,
   },
 };
 
@@ -206,6 +233,7 @@ export class ThreePetRenderer {
   private earSpringVelocities: [number, number] = [0, 0];
   private currentBreed: DogBreed = "golden-retriever";
   private readonly gltfMaterialsByName = new Map<string, THREE.Material>();
+  private readonly gltfMeshesByName = new Map<string, THREE.SkinnedMesh>();
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(40, 220 / 180, 0.1, 50);
@@ -420,24 +448,30 @@ export class ThreePetRenderer {
     const profile = DOG_BREEDS[this.currentBreed] || DOG_BREEDS["golden-retriever"];
     const furMat = this.gltfMaterialsByName.get("Fur") as THREE.MeshPhysicalMaterial | undefined;
     if (furMat) {
-      furMat.color.setHex(profile.coatMain);
+      furMat.vertexColors = true;
+      furMat.color.setHex(0xffffff);
       furMat.sheenColor.setHex(profile.sheenColor);
       furMat.sheen = profile.sheenIntensity;
       furMat.roughness = profile.roughness;
+      furMat.needsUpdate = true;
     }
     const lightMat = this.gltfMaterialsByName.get("Light") as THREE.MeshPhysicalMaterial | undefined;
     if (lightMat) {
-      lightMat.color.setHex(profile.coatLight);
+      lightMat.vertexColors = true;
+      lightMat.color.setHex(0xffffff);
       lightMat.sheenColor.setHex(profile.sheenColor);
       lightMat.sheen = profile.sheenIntensity * 0.8;
       lightMat.roughness = profile.roughness;
+      lightMat.needsUpdate = true;
     }
     const earMat = this.gltfMaterialsByName.get("Ear") as THREE.MeshPhysicalMaterial | undefined;
     if (earMat) {
-      earMat.color.setHex(profile.coatEar);
+      earMat.vertexColors = true;
+      earMat.color.setHex(0xffffff);
       earMat.sheenColor.setHex(profile.sheenColor);
       earMat.sheen = profile.sheenIntensity;
       earMat.roughness = profile.roughness;
+      earMat.needsUpdate = true;
     }
     const eyeMat = this.gltfMaterialsByName.get("Ink") as THREE.MeshStandardMaterial | undefined;
     if (eyeMat) {
@@ -454,7 +488,133 @@ export class ThreePetRenderer {
     if (this.gltfModel && this.gltfModel.userData.baseScale) {
       this.gltfModel.scale.setScalar(this.gltfModel.userData.baseScale * profile.scaleFactor);
     }
+    this.updateBreedVertexColors(this.currentBreed);
   }
+
+  private updateBreedVertexColors(breed: DogBreed): void {
+    const furMesh = this.gltfMeshesByName.get("Fur");
+    const lightMesh = this.gltfMeshesByName.get("Light");
+    const earMesh = this.gltfMeshesByName.get("Ear");
+
+    const colorHelper = new THREE.Color();
+
+    const applyMeshColors = (
+      mesh: THREE.SkinnedMesh | undefined,
+      colorFn: (x: number, y: number, z: number, outColor: THREE.Color) => void,
+    ) => {
+      if (!mesh) return;
+      const geom = mesh.geometry;
+      const posAttr = geom.getAttribute("position");
+      if (!posAttr) return;
+
+      let colorAttr = geom.getAttribute("color") as THREE.BufferAttribute | undefined;
+      if (!colorAttr || colorAttr.count !== posAttr.count) {
+        colorAttr = new THREE.BufferAttribute(new Float32Array(posAttr.count * 3), 3);
+        geom.setAttribute("color", colorAttr);
+      }
+
+      for (let i = 0; i < posAttr.count; i++) {
+        const x = posAttr.getX(i);
+        const y = posAttr.getY(i);
+        const z = posAttr.getZ(i);
+        colorFn(x, y, z, colorHelper);
+        colorAttr.setXYZ(i, colorHelper.r, colorHelper.g, colorHelper.b);
+      }
+      colorAttr.needsUpdate = true;
+    };
+
+    // Fur mesh coloring (main body, head, limbs)
+    applyMeshColors(furMesh, (x, y, z, out) => {
+      const ax = Math.abs(x);
+      if (breed === "german-shepherd") {
+        // German Shepherd: Classic black saddle + black face mask + tan eyebrow spots
+        const isSaddle = y > 0.28 && z >= -0.34 && z <= 0.12 && ax < 0.138;
+        const isSnoutMask = z > 0.26 && y >= 0.42 && y <= 0.62 && ax < 0.098;
+        const isEyebrow = ax >= 0.035 && ax <= 0.075 && y >= 0.59 && y <= 0.68 && z >= 0.22 && z <= 0.34;
+        if (isEyebrow) {
+          out.setHex(0xdda050); // Tan eyebrow dots
+        } else if (isSaddle || isSnoutMask) {
+          out.setHex(0x1a1918); // Charcoal black saddle & muzzle mask
+        } else {
+          // Warm rich tan/rust coat with natural depth
+          out.setHex(y > 0.4 ? 0xba7631 : 0xd29752);
+        }
+      } else if (breed === "husky") {
+        // Siberian Husky: Slate wolf mantle + skull cap + white facial blaze & spectacles
+        const isBlaze = ax < 0.024 && z > 0.23 && y > 0.46;
+        const isWhiteCheek = ax > 0.038 && y >= 0.42 && y <= 0.60 && z > 0.18;
+        const isMantle = y > 0.30 && z >= -0.35 && z <= 0.12 && ax < 0.145;
+        const isHeadCap = y > 0.60 && z >= 0.05 && z <= 0.24 && ax < 0.11;
+        if (isBlaze || isWhiteCheek) {
+          out.setHex(0xf8fafc); // Arctic white facial blaze & spectacles
+        } else if (isMantle || isHeadCap) {
+          out.setHex(0x2f3540); // Dark wolf slate mantle & cap
+        } else {
+          out.setHex(0x6b7482); // Silver-grey flanks
+        }
+      } else if (breed === "shiba-inu") {
+        // Shiba Inu: Fox-red coat + Urajiro white cheeks & maro eyebrow spots
+        const isEyebrow = ax >= 0.035 && ax <= 0.075 && y >= 0.59 && y <= 0.68 && z >= 0.22 && z <= 0.34;
+        const isUrajiroCheek = ax > 0.038 && y >= 0.42 && y <= 0.58 && z > 0.18;
+        const isThroatWhite = y < 0.38 && z > 0.08 && ax < 0.09;
+        if (isEyebrow || isUrajiroCheek || isThroatWhite) {
+          out.setHex(0xfffaf0); // Pristine urajiro white
+        } else {
+          out.setHex(0xd86222); // Vibrant red sesame fox coat
+        }
+      } else if (breed === "black-labrador") {
+        out.setHex(0x181a1d); // Sleek raven black
+      } else if (breed === "chocolate-labrador") {
+        out.setHex(0x442718); // Rich cocoa brown
+      } else {
+        out.setHex(0xd9822b); // Golden Retriever golden amber
+      }
+    });
+
+    // Light mesh coloring (chest feathering, paws, underbelly)
+    applyMeshColors(lightMesh, (x, y, z, out) => {
+      const ax = Math.abs(x);
+      if (breed === "german-shepherd") {
+        // Warm tan underbelly & paw points
+        out.setHex(0xdeb882);
+      } else if (breed === "husky") {
+        // Crisp snow white chest, paws, underbelly
+        out.setHex(0xffffff);
+      } else if (breed === "shiba-inu") {
+        // Pure urajiro cream underside
+        out.setHex(0xfff8ee);
+      } else if (breed === "black-labrador") {
+        // Tiny white star on chest
+        const isChestStar = y >= 0.26 && y <= 0.36 && z >= 0.14 && z <= 0.26 && ax < 0.026;
+        out.setHex(isChestStar ? 0xffffff : 0x24282e);
+      } else if (breed === "chocolate-labrador") {
+        out.setHex(0x5a341d);
+      } else {
+        out.setHex(0xf6dfbe);
+      }
+    });
+
+    // Ear mesh coloring
+    applyMeshColors(earMesh, (x, y, z, out) => {
+      const ax = Math.abs(x);
+      if (breed === "german-shepherd") {
+        out.setHex(0x161514); // Solid black shepherd ears
+      } else if (breed === "husky") {
+        const isInnerRuff = ax < 0.125 && z > 0.23;
+        out.setHex(isInnerRuff ? 0xf1f5f9 : 0x2b313c); // White inner ruff, dark slate outer
+      } else if (breed === "shiba-inu") {
+        const isInnerRuff = ax < 0.125 && z > 0.23;
+        out.setHex(isInnerRuff ? 0xfff5ea : 0xd86222); // White inner ruff, fox-red outer
+      } else if (breed === "black-labrador") {
+        out.setHex(0x111315);
+      } else if (breed === "chocolate-labrador") {
+        out.setHex(0x32190d);
+      } else {
+        out.setHex(0xb5631b);
+      }
+    });
+  }
+
 
   render(frame: ThreePetFrame): void {
     this.resetPose();
@@ -600,14 +760,35 @@ export class ThreePetRenderer {
       const head = this.gltfBones.get("head");
       const earL = this.gltfBones.get("ear_L");
       const earR = this.gltfBones.get("ear_R");
+      const tail1 = this.gltfBones.get("tail_1");
+      const tail2 = this.gltfBones.get("tail_2");
+      const tail3 = this.gltfBones.get("tail_3");
+
+      const profile = DOG_BREEDS[this.currentBreed] || DOG_BREEDS["golden-retriever"];
 
       if (head) {
         rotateBone(head, this.currentHeadPitch, this.currentHeadYaw, 0);
       }
 
       if (earL && earR) {
-        rotateBone(earL, this.earSpringAngles[0], 0, frame.isPetting ? 0.18 : 0);
-        rotateBone(earR, this.earSpringAngles[1], 0, frame.isPetting ? -0.18 : 0);
+        if (profile.earTilt) {
+          rotateBone(earL, profile.earTilt.x, profile.earTilt.y, profile.earTilt.z);
+          rotateBone(earR, profile.earTilt.x, -profile.earTilt.y, -profile.earTilt.z);
+        }
+        if (profile.earScale) {
+          earL.scale.set(profile.earScale.x, profile.earScale.y, profile.earScale.z);
+          earR.scale.set(profile.earScale.x, profile.earScale.y, profile.earScale.z);
+        }
+        const physScale = profile.isPrickEared ? 0.35 : 1.0;
+        rotateBone(earL, this.earSpringAngles[0] * physScale, 0, frame.isPetting ? 0.18 : 0);
+        rotateBone(earR, this.earSpringAngles[1] * physScale, 0, frame.isPetting ? -0.18 : 0);
+      }
+
+      if (profile.tailCurvature) {
+        const [c1, c2, c3] = profile.tailCurvature;
+        if (tail1 && c1 !== 0) rotateBone(tail1, c1, 0, this.currentBreed === "shiba-inu" ? 0.18 : 0);
+        if (tail2 && c2 !== 0) rotateBone(tail2, c2, 0, this.currentBreed === "shiba-inu" ? 0.22 : 0);
+        if (tail3 && c3 !== 0) rotateBone(tail3, c3, 0, this.currentBreed === "shiba-inu" ? 0.25 : 0);
       }
 
       if (frame.behavior === "handshake") {
@@ -851,6 +1032,7 @@ export class ThreePetRenderer {
       this.initialBonePositions.clear();
       this.dogMesh = null;
       this.gltfMaterialsByName.clear();
+      this.gltfMeshesByName.clear();
 
       this.gltfModel = gltf.scene;
 
@@ -859,6 +1041,12 @@ export class ThreePetRenderer {
         if (node instanceof THREE.Mesh) {
           node.castShadow = true;
           node.receiveShadow = true;
+          if (node instanceof THREE.SkinnedMesh && node.material) {
+            const origMat = Array.isArray(node.material) ? node.material[0] : node.material;
+            if (origMat && origMat.name) {
+              this.gltfMeshesByName.set(origMat.name, node);
+            }
+          }
           if (node.material) {
             const mats = Array.isArray(node.material) ? node.material : [node.material];
             const newMats = mats.map((m) => {
